@@ -118,4 +118,3 @@ Calculates the adjusted temperature based on various conditions:
 ## Usage
 
 To use this script, add it to your Home Assistant configuration and ensure you have the necessary sensors and weather integration set up.
-```
