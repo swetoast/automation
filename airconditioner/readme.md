@@ -80,6 +80,45 @@ Initializes a namespace `ns` to store intermediate calculation results.
 
 Loops through the first three forecast entries to find the minimum temperature, maximum humidity, and future temperature.
 
+Here's a detailed breakdown:
+
+1. **Loop Initialization**:
+   ```jinja
+   {% for i in range(0, 3) %}
+   ```
+   This loop runs three times, corresponding to the first three forecast entries.
+
+2. **Extracting Temperature and Humidity**:
+   ```jinja
+   {% set curr_temp = forecast[i]['temperature']|float %}
+   {% set curr_humidity = forecast[i]['humidity']|float %}
+   ```
+   For each iteration, it extracts the temperature and humidity from the forecast and converts them to float values.
+
+3. **Finding Minimum Temperature**:
+   ```jinja
+   {% if curr_temp < ns.min_temp %}
+     {% set ns.min_temp = curr_temp %}
+   {% endif %}
+   ```
+   If the current temperature (`curr_temp`) is less than the current minimum temperature (`ns.min_temp`), it updates `ns.min_temp` to the current temperature.
+
+4. **Finding Maximum Humidity**:
+   ```jinja
+   {% if curr_humidity > ns.max_humidity %}
+     {% set ns.max_humidity = curr_humidity %}
+   {% endif %}
+   ```
+   If the current humidity (`curr_humidity`) is greater than the current maximum humidity (`ns.max_humidity`), it updates `ns.max_humidity` to the current humidity.
+
+5. **Finding Highest Future Temperature**:
+   ```jinja
+   {% if curr_temp > ns.future_temp %}
+     {% set ns.future_temp = curr_temp %}
+   {% endif %}
+   ```
+   If the current temperature (`curr_temp`) is greater than the current highest future temperature (`ns.future_temp`), it updates `ns.future_temp` to the current temperature.
+
 ### Adjusted Temperature Calculation
 
 ```yaml
