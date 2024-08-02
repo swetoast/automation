@@ -4,7 +4,7 @@ This script sets the temperature of an air conditioner based on various environm
 
 ## Overview
 
-The script uses the `climate.set_temperature` service to adjust the air conditioner's temperature. It takes into account indoor and outdoor temperatures, humidity, dew point, cloud coverage, and the sun's position.
+The script uses the `climate.set_temperature` service to adjust the air conditioner's temperature. It takes into account indoor and outdoor temperatures, humidity, dew point, cloud coverage, wind speed, and the sun's position.
 
 ## Script Breakdown
 
@@ -30,15 +30,18 @@ Defines a template for calculating the temperature to set.
 ### Variables
 
 ```yaml
-{% set indoor_temp = states('sensor.indoor_average_temperure')|float %}
+{% set indoor_temp = states('sensor.indoor_average_temperature')|float %}
 {% set indoor_heat_index = states('sensor.indoor_comfort_heat_index')|float %}
 {% set outdoor_temp = states('sensor.average_outdoor_temperature')|float %}
 {% set current_dew_point = state_attr('weather.forecast_home', 'dew_point')|float %}
 {% set current_cloud_coverage = state_attr('weather.forecast_home', 'cloud_coverage')|float %}
-{% set humidity_difference = states('sensor.humidity_differnace')|float %}
+{% set current_wind_speed = state_attr('weather.forecast_home', 'wind_speed')|float %}
+{% set current_humidity = state_attr('weather.forecast_home', 'humidity')|float %}
+{% set humidity_difference = states('sensor.humidity_difference')|float %}
 {% set temp_difference = states('sensor.temperature_difference')|float %}
 {% set sun_state = states('sun.sun') %}
 {% set forecast = state_attr('weather.forecast_home', 'forecast') %}
+{% set ns = namespace(start=0, end=0, min_temp=1000, max_humidity=0, future_temp=0, max_wind_speed=0) %}
 ```
 
 These lines set various variables using the current state of different sensors and weather attributes:
@@ -47,6 +50,8 @@ These lines set various variables using the current state of different sensors a
 - `outdoor_temp`: Average outdoor temperature.
 - `current_dew_point`: Current dew point from the weather forecast.
 - `current_cloud_coverage`: Current cloud coverage from the weather forecast.
+- `current_wind_speed`: Current wind speed from the weather forecast.
+- `current_humidity`: Current humidity from the weather forecast.
 - `humidity_difference`: Difference in humidity (outside versus inside).
 - `temp_difference`: Difference in temperature (outside versus inside).
 - `sun_state`: State of the sun (above or below the horizon).
@@ -55,7 +60,7 @@ These lines set various variables using the current state of different sensors a
 ### Namespace for Calculations
 
 ```yaml
-{% set ns = namespace(start=0, end=0, min_temp=1000, max_humidity=0, future_temp=0) %}
+{% set ns = namespace(start=0, end=0, min_temp=1000, max_humidity=0, future_temp=0, max_wind_speed=0) %}
 ```
 
 Initializes a namespace `ns` to store intermediate calculation results.
@@ -66,6 +71,7 @@ Initializes a namespace `ns` to store intermediate calculation results.
 {% for i in range(0, 3) %}
   {% set curr_temp = forecast[i]['temperature']|float %}
   {% set curr_humidity = forecast[i]['humidity']|float %}
+  {% set curr_wind_speed = forecast[i]['wind_speed']|float %}
   {% if curr_temp < ns.min_temp %}
     {% set ns.min_temp = curr_temp %}
   {% endif %}
@@ -75,10 +81,13 @@ Initializes a namespace `ns` to store intermediate calculation results.
   {% if curr_temp > ns.future_temp %}
     {% set ns.future_temp = curr_temp %}
   {% endif %}
+  {% if curr_wind_speed > ns.max_wind_speed %}
+    {% set ns.max_wind_speed = curr_wind_speed %}
+  {% endif %}
 {% endfor %}
 ```
 
-Loops through the first three forecast entries to find the minimum temperature, maximum humidity, and future temperature.
+Loops through the first three forecast entries to find the minimum temperature, maximum humidity, future temperature, and maximum wind speed.
 
 ### Adjusted Temperature Calculation
 
@@ -93,8 +102,13 @@ Loops through the first three forecast entries to find the minimum temperature, 
 {% endif %}
 {% set adjusted_temp = adjusted_temp - (humidity_difference / 10) %}
 {% set adjusted_temp = adjusted_temp + (temp_difference / 5) %}
+{% if ns.max_wind_speed < 4.7 %}
+  {% set adjusted_temp = adjusted_temp - 1 %}
+{% elif ns.max_wind_speed > 5.9 %}
+  {% set adjusted_temp = adjusted_temp + 1 %}
+{% endif %}
 {% if sun_state == 'above_horizon' %}
-  {% set adjusted_temp = adjusted_temp + 2 %}
+  {% set adjusted_temp = adjusted_temp + 3 %}
 {% elif sun_state == 'below_horizon' %}
   {% set adjusted_temp = adjusted_temp - 2 %}
 {% endif %}
@@ -111,15 +125,16 @@ Calculates the adjusted temperature based on various conditions:
 - Adjusts for cloud coverage.
 - Uses future temperature if it's higher than the indoor temperature.
 - Adjusts for humidity and temperature differences.
+- Adjusts based on the wind speed.
 - Adjusts based on the sun's position.
 - Ensures the temperature is within the range of 20 to 31 degrees Celsius.
 
 ### Gradual Temperature Adjustment
 
 ```yaml
-{% set current_temp = states.climate.air_conditioner.attributes.current_temperature|float %}
+{% set current_temp = states('sensor.indoor_average_temperature')|float %}
 {% set temp_diff = adjusted_temp - current_temp %}
-{% set step = 2 %}
+{% set step = 1 %}
 {% if temp_diff > step %}
   {% set final_temp = current_temp + step %}
 {% elif temp_diff < -step %}
@@ -127,75 +142,22 @@ Calculates the adjusted temperature based on various conditions:
 {% else %}
   {% set final_temp = adjusted_temp %}
 {% endif %}
-
-{% set target_difference = states('sensor.air_conditioner_target_difference')|round|int %}
-{% set time_since_last_adjustment = ((as_timestamp(now()) - as_timestamp(states.climate.air_conditioner.last_changed)) / 60)|round|int %}
-{% if target_difference > 0 and time_since_last_adjustment > 10 %}
-  {% set final_temp = final_temp + 1 %}
-{% endif %}
-
-{{ final_temp|round|int }}
 ```
 
 This section ensures that the temperature is adjusted gradually:
-- Retrieves the current temperature of the air conditioner.
+- Retrieves the current temperature of the apartment.
 - Calculates the difference between the adjusted temperature and the current temperature.
-- Adjusts the temperature incrementally by 2 degrees towards the adjusted temperature.
-- If the target difference is greater than 0 and it has been more than 10 minutes since the last adjustment, it increases the final temperature by 1 degree.
+- Adjusts the temperature incrementally by 1 degree towards the adjusted temperature.
 
-This section of the script is responsible for adjusting the temperature gradually and ensuring that the air conditioner doesn't make drastic changes, which could be uncomfortable.
+### Final Temperature Output
 
-1. **Current Temperature Retrieval**:
-   ```jinja
-   {% set current_temp = states.climate.air_conditioner.attributes.current_temperature|float %}
-   ```
-   This line retrieves the current temperature of the air conditioner and converts it to a float.
+```yaml
+{{ final_temp|round|int }}
+```
 
-2. **Temperature Difference Calculation**:
-   ```jinja
-   {% set temp_diff = adjusted_temp - current_temp %}
-   ```
-   This line calculates the difference between the adjusted temperature (calculated in the previous section of the script) and the current temperature.
-
-3. **Step Definition**:
-   ```jinja
-   {% set step = 2 %}
-   ```
-   This line defines a step of 2 degrees. This is the maximum amount by which the temperature will be adjusted in one iteration.
-
-4. **Gradual Temperature Adjustment**:
-   ```jinja
-   {% if temp_diff > step %}
-     {% set final_temp = current_temp + step %}
-   {% elif temp_diff < -step %}
-     {% set final_temp = current_temp - step %}
-   {% else %}
-     {% set final_temp = adjusted_temp %}
-   {% endif %}
-   ```
-   This block adjusts the temperature incrementally towards the adjusted temperature. If the temperature difference is greater than the step, it increases the current temperature by the step. If the temperature difference is less than the negative step, it decreases the current temperature by the step. Otherwise, it sets the final temperature to the adjusted temperature.
-
-5. **Target Difference and Time Since Last Adjustment**:
-   ```jinja
-   {% set target_difference = states('sensor.air_conditioner_target_difference')|round|int %}
-   {% set time_since_last_adjustment = ((as_timestamp(now()) - as_timestamp(states.climate.air_conditioner.last_changed)) / 60)|round|int %}
-   ```
-   These lines calculate the difference between the target temperature and the current temperature, and the time since the last adjustment was made. The time is calculated in minutes.
-
-6. **Final Adjustment Based on Target Difference and Time**:
-   ```jinja
-   {% if target_difference > 0 and time_since_last_adjustment > 10 %}
-     {% set final_temp = final_temp + 1 %}
-   {% endif %}
-   ```
-   This block increases the final temperature by 1 degree if the target difference is greater than 0 and it has been more than 10 minutes since the last adjustment.
-
-7. **Final Temperature Output**:
-   ```jinja
-   {{ final_temp|round|int }}
-   ```
-   This line outputs the final temperature, rounded to an integer. This is the temperature that will be set for the air conditioner.
+This line outputs the final temperature, rounded to an integer. This is the temperature that will be set for the air conditioner.
 
 ## Usage
 
 To use this script, add it to your Home Assistant configuration and ensure you have the necessary sensors and weather integration set up. This script is a great example of how you can use Home Assistant to automate your home climate control based on a variety of factors!
+clarification, feel free to ask! 😊
