@@ -142,7 +142,6 @@ Here's a detailed breakdown:
 {% elif adjusted_temp > 31 %}
   {% set adjusted_temp = 31 %}
 {% endif %}
-{{ adjusted_temp|round|int }}
 ```
 
 Calculates the adjusted temperature based on various conditions:
@@ -153,6 +152,28 @@ Calculates the adjusted temperature based on various conditions:
 - Adjusts for humidity and temperature differences.
 - Adjusts based on the sun's position.
 - Ensures the temperature is within the range of 20 to 31 degrees Celsius.
+
+### Gradual Temperature Adjustment
+
+```yaml
+{% set current_temp = states.climate.air_conditioner.attributes.current_temperature|float %}
+{% set temp_diff = adjusted_temp - current_temp %}
+{% set step = 1 %}
+{% if temp_diff > step %}
+  {% set final_temp = current_temp + step %}
+{% elif temp_diff < -step %}
+  {% set final_temp = current_temp - step %}
+{% else %}
+  {% set final_temp = adjusted_temp %}
+{% endif %}
+
+{{ final_temp|round|int }}
+```
+
+This section ensures that the temperature is adjusted gradually:
+- Retrieves the current temperature of the air conditioner.
+- Calculates the difference between the adjusted temperature and the current temperature.
+- Adjusts the temperature incrementally by 1 degree towards the adjusted temperature.
 
 ## Usage
 
