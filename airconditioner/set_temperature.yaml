@@ -38,7 +38,7 @@ data_template:
     {% endif %} {% set adjusted_temp = adjusted_temp - (humidity_difference /
     10) %} {% set adjusted_temp = adjusted_temp + (temp_difference / 5) %} {% if
     sun_state == 'above_horizon' %}
-      {% set adjusted_temp = adjusted_temp + 2 %}
+      {% set adjusted_temp = adjusted_temp + 3 %}
     {% elif sun_state == 'below_horizon' %}
       {% set adjusted_temp = adjusted_temp - 2 %}
     {% endif %} {% if adjusted_temp < 20 %}
@@ -49,13 +49,21 @@ data_template:
 
     {% set current_temp =
     states.climate.air_conditioner.attributes.current_temperature|float %} {%
-    set temp_diff = adjusted_temp - current_temp %} {% set step = 1 %} {% if
+    set temp_diff = adjusted_temp - current_temp %} {% set step = 2 %} {% if
     temp_diff > step %}
       {% set final_temp = current_temp + step %}
     {% elif temp_diff < -step %}
       {% set final_temp = current_temp - step %}
     {% else %}
       {% set final_temp = adjusted_temp %}
+    {% endif %}
+
+    {% set target_difference =
+    states('sensor.air_conditioner_target_difference')|round|int %} {% set
+    time_since_last_adjustment = ((as_timestamp(now()) -
+    as_timestamp(states.climate.air_conditioner.last_changed)) / 60)|round|int
+    %} {% if target_difference > 0 and time_since_last_adjustment > 10 %}
+      {% set final_temp = final_temp + 1 %}
     {% endif %}
 
     {{ final_temp|round|int }}
