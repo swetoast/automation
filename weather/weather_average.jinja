@@ -1,7 +1,7 @@
 {% set forecast = state_attr('weather.forecast_home', 'forecast') %}
 {% set ns = namespace(temp_sum=0, humidity_sum=0, wind_speed_sum=0, wind_bearing_sum=0, low_temp_sum=0, gust_speed_sum=0, precipitation_sum=0, condition='', precipitation_probability=0) %}
 
-{% for i in range(0, 4) %}
+{% for i in range(0, 3) %}
   {% if forecast is defined and forecast[i] is defined %}
     {% set ns.temp_sum = ns.temp_sum + forecast[i]['temperature']|float %}
     {% set ns.humidity_sum = ns.humidity_sum + forecast[i]['humidity']|float %}
