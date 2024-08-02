@@ -1,0 +1,1 @@
+{{ states('sensor.average_outside_humidity') | float - states('sensor.average_indoor_humidity') | float }}
