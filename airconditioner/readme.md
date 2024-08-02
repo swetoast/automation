@@ -35,8 +35,8 @@ Defines a template for calculating the temperature to set.
 {% set outdoor_temp = states('sensor.average_outdoor_temperature')|float %}
 {% set current_dew_point = state_attr('weather.forecast_home', 'dew_point')|float %}
 {% set current_cloud_coverage = state_attr('weather.forecast_home', 'cloud_coverage')|float %}
-{% set humidity_difference = states('sensor.humidity_differnace') %}
-{% set temp_difference = states('sensor.temperature_difference') %}
+{% set humidity_difference = states('sensor.humidity_differnace')|float %}
+{% set temp_difference = states('sensor.temperature_difference')|float %}
 {% set sun_state = states('sun.sun') %}
 {% set forecast = state_attr('weather.forecast_home', 'forecast') %}
 ```
@@ -130,15 +130,15 @@ Here's a detailed breakdown:
 {% if ns.future_temp > indoor_temp %}
   {% set adjusted_temp = ns.future_temp %}
 {% endif %}
-{% set adjusted_temp = adjusted_temp - (humidity_difference|float / 10) %}
-{% set adjusted_temp = adjusted_temp + (temp_difference|float / 5) %}
+{% set adjusted_temp = adjusted_temp - (humidity_difference / 10) %}
+{% set adjusted_temp = adjusted_temp + (temp_difference / 5) %}
 {% if sun_state == 'above_horizon' %}
   {% set adjusted_temp = adjusted_temp + 2 %}
 {% elif sun_state == 'below_horizon' %}
   {% set adjusted_temp = adjusted_temp - 2 %}
 {% endif %}
-{% if adjusted_temp < 16 %}
-  {% set adjusted_temp = 16 %}
+{% if adjusted_temp < 20 %}
+  {% set adjusted_temp = 20 %}
 {% elif adjusted_temp > 31 %}
   {% set adjusted_temp = 31 %}
 {% endif %}
@@ -152,7 +152,7 @@ Calculates the adjusted temperature based on various conditions:
 - Uses future temperature if it's higher than the indoor temperature.
 - Adjusts for humidity and temperature differences.
 - Adjusts based on the sun's position.
-- Ensures the temperature is within the range of 16 to 31 degrees Celsius.
+- Ensures the temperature is within the range of 20 to 31 degrees Celsius.
 
 ## Usage
 
