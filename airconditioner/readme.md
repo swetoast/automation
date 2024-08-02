@@ -80,45 +80,6 @@ Initializes a namespace `ns` to store intermediate calculation results.
 
 Loops through the first three forecast entries to find the minimum temperature, maximum humidity, and future temperature.
 
-Here's a detailed breakdown:
-
-1. **Loop Initialization**:
-   ```jinja
-   {% for i in range(0, 3) %}
-   ```
-   This loop runs three times, corresponding to the first three forecast entries.
-
-2. **Extracting Temperature and Humidity**:
-   ```jinja
-   {% set curr_temp = forecast[i]['temperature']|float %}
-   {% set curr_humidity = forecast[i]['humidity']|float %}
-   ```
-   For each iteration, it extracts the temperature and humidity from the forecast and converts them to float values.
-
-3. **Finding Minimum Temperature**:
-   ```jinja
-   {% if curr_temp < ns.min_temp %}
-     {% set ns.min_temp = curr_temp %}
-   {% endif %}
-   ```
-   If the current temperature (`curr_temp`) is less than the current minimum temperature (`ns.min_temp`), it updates `ns.min_temp` to the current temperature.
-
-4. **Finding Maximum Humidity**:
-   ```jinja
-   {% if curr_humidity > ns.max_humidity %}
-     {% set ns.max_humidity = curr_humidity %}
-   {% endif %}
-   ```
-   If the current humidity (`curr_humidity`) is greater than the current maximum humidity (`ns.max_humidity`), it updates `ns.max_humidity` to the current humidity.
-
-5. **Finding Highest Future Temperature**:
-   ```jinja
-   {% if curr_temp > ns.future_temp %}
-     {% set ns.future_temp = curr_temp %}
-   {% endif %}
-   ```
-   If the current temperature (`curr_temp`) is greater than the current highest future temperature (`ns.future_temp`), it updates `ns.future_temp` to the current temperature.
-
 ### Adjusted Temperature Calculation
 
 ```yaml
@@ -158,7 +119,7 @@ Calculates the adjusted temperature based on various conditions:
 ```yaml
 {% set current_temp = states.climate.air_conditioner.attributes.current_temperature|float %}
 {% set temp_diff = adjusted_temp - current_temp %}
-{% set step = 1 %}
+{% set step = 2 %}
 {% if temp_diff > step %}
   {% set final_temp = current_temp + step %}
 {% elif temp_diff < -step %}
@@ -167,14 +128,74 @@ Calculates the adjusted temperature based on various conditions:
   {% set final_temp = adjusted_temp %}
 {% endif %}
 
+{% set target_difference = states('sensor.air_conditioner_target_difference')|round|int %}
+{% set time_since_last_adjustment = ((as_timestamp(now()) - as_timestamp(states.climate.air_conditioner.last_changed)) / 60)|round|int %}
+{% if target_difference > 0 and time_since_last_adjustment > 10 %}
+  {% set final_temp = final_temp + 1 %}
+{% endif %}
+
 {{ final_temp|round|int }}
 ```
 
 This section ensures that the temperature is adjusted gradually:
 - Retrieves the current temperature of the air conditioner.
 - Calculates the difference between the adjusted temperature and the current temperature.
-- Adjusts the temperature incrementally by 1 degree towards the adjusted temperature.
+- Adjusts the temperature incrementally by 2 degrees towards the adjusted temperature.
+- If the target difference is greater than 0 and it has been more than 10 minutes since the last adjustment, it increases the final temperature by 1 degree.
+
+This section of the script is responsible for adjusting the temperature gradually and ensuring that the air conditioner doesn't make drastic changes, which could be uncomfortable.
+
+1. **Current Temperature Retrieval**:
+   ```jinja
+   {% set current_temp = states.climate.air_conditioner.attributes.current_temperature|float %}
+   ```
+   This line retrieves the current temperature of the air conditioner and converts it to a float.
+
+2. **Temperature Difference Calculation**:
+   ```jinja
+   {% set temp_diff = adjusted_temp - current_temp %}
+   ```
+   This line calculates the difference between the adjusted temperature (calculated in the previous section of the script) and the current temperature.
+
+3. **Step Definition**:
+   ```jinja
+   {% set step = 2 %}
+   ```
+   This line defines a step of 2 degrees. This is the maximum amount by which the temperature will be adjusted in one iteration.
+
+4. **Gradual Temperature Adjustment**:
+   ```jinja
+   {% if temp_diff > step %}
+     {% set final_temp = current_temp + step %}
+   {% elif temp_diff < -step %}
+     {% set final_temp = current_temp - step %}
+   {% else %}
+     {% set final_temp = adjusted_temp %}
+   {% endif %}
+   ```
+   This block adjusts the temperature incrementally towards the adjusted temperature. If the temperature difference is greater than the step, it increases the current temperature by the step. If the temperature difference is less than the negative step, it decreases the current temperature by the step. Otherwise, it sets the final temperature to the adjusted temperature.
+
+5. **Target Difference and Time Since Last Adjustment**:
+   ```jinja
+   {% set target_difference = states('sensor.air_conditioner_target_difference')|round|int %}
+   {% set time_since_last_adjustment = ((as_timestamp(now()) - as_timestamp(states.climate.air_conditioner.last_changed)) / 60)|round|int %}
+   ```
+   These lines calculate the difference between the target temperature and the current temperature, and the time since the last adjustment was made. The time is calculated in minutes.
+
+6. **Final Adjustment Based on Target Difference and Time**:
+   ```jinja
+   {% if target_difference > 0 and time_since_last_adjustment > 10 %}
+     {% set final_temp = final_temp + 1 %}
+   {% endif %}
+   ```
+   This block increases the final temperature by 1 degree if the target difference is greater than 0 and it has been more than 10 minutes since the last adjustment.
+
+7. **Final Temperature Output**:
+   ```jinja
+   {{ final_temp|round|int }}
+   ```
+   This line outputs the final temperature, rounded to an integer. This is the temperature that will be set for the air conditioner.
 
 ## Usage
 
-To use this script, add it to your Home Assistant configuration and ensure you have the necessary sensors and weather integration set up.
+To use this script, add it to your Home Assistant configuration and ensure you have the necessary sensors and weather integration set up. This script is a great example of how you can use Home Assistant to automate your home climate control based on a variety of factors!
