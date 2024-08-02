@@ -1,0 +1,27 @@
+{% set forecast = state_attr('weather.forecast_home', 'forecast') %}
+{% set ns = namespace(temp_sum=0, humidity_sum=0, wind_speed_sum=0, wind_bearing_sum=0, low_temp_sum=0, gust_speed_sum=0, precipitation_sum=0, condition='', precipitation_probability=0) %}
+
+{% for i in range(0, 4) %}
+  {% if forecast is defined and forecast[i] is defined %}
+    {% set ns.temp_sum = ns.temp_sum + forecast[i]['temperature']|float %}
+    {% set ns.humidity_sum = ns.humidity_sum + forecast[i]['humidity']|float %}
+    {% set ns.wind_speed_sum = ns.wind_speed_sum + forecast[i]['wind_speed']|float %}
+    {% set ns.wind_bearing_sum = ns.wind_bearing_sum + forecast[i]['wind_bearing']|float %}
+    {% set ns.low_temp_sum = ns.low_temp_sum + forecast[i]['templow']|float %}
+    {% set ns.gust_speed_sum = ns.gust_speed_sum + forecast[i]['wind_gust_speed']|float %}
+    {% set ns.precipitation_sum = ns.precipitation_sum + forecast[i]['precipitation']|float %}
+    {% set ns.condition = forecast[i]['condition'] %}
+    {% set ns.precipitation_probability = ns.precipitation_probability + forecast[i]['precipitation_probability']|float %}
+  {% endif %}
+{% endfor %}
+
+Average forecast for the next 3 hours:
+  Average Temperature: {{ (ns.temp_sum / 3)|round(1) }}
+  Average Humidity: {{ (ns.humidity_sum / 3)|round(1) }}
+  Average Wind Speed: {{ (ns.wind_speed_sum / 3)|round(1) }}
+  Average Wind Bearing: {{ (ns.wind_bearing_sum / 3)|round(1) }}
+  Average Low Temperature: {{ (ns.low_temp_sum / 3)|round(1) }}
+  Average Wind Gust Speed: {{ (ns.gust_speed_sum / 3)|round(1) }}
+  Average Precipitation: {{ (ns.precipitation_sum / 3)|round(1) }}
+  Condition: {{ ns.condition }}
+  Average Precipitation Probability: {{ (ns.precipitation_probability / 3)|round(1) }}
