@@ -1,0 +1,1 @@
+{{ states('sensor.average_outdoor_temperature') | float - states('sensor.indoor_average_temperure') | float }}
