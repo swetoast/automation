@@ -15,7 +15,7 @@ This line fetches the forecast data from the `weather.forecast_home` entity in H
 This line initializes a namespace `ns` with variables to store the sum of the temperature, humidity, wind speed, wind bearing, low temperature, wind gust speed, and precipitation. It also initializes variables to store the condition and precipitation probability.
 
 ```yaml
-{% for i in range(0, 4) %}
+{% for i in range(0, 3) %}
   {% if forecast is defined and forecast[i] is defined %}
 ```
 This loop iterates over the first 3 hours of the forecast data. It checks if the forecast data for each hour exists before trying to access it.
