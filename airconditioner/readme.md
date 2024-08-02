@@ -47,8 +47,8 @@ These lines set various variables using the current state of different sensors a
 - `outdoor_temp`: Average outdoor temperature.
 - `current_dew_point`: Current dew point from the weather forecast.
 - `current_cloud_coverage`: Current cloud coverage from the weather forecast.
-- `humidity_difference`: Difference in humidity.
-- `temp_difference`: Difference in temperature.
+- `humidity_difference`: Difference in humidity (outside versus inside).
+- `temp_difference`: Difference in temperature (outside versus inside).
 - `sun_state`: State of the sun (above or below the horizon).
 - `forecast`: Weather forecast data.
 
