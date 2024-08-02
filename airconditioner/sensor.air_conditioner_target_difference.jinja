@@ -44,7 +44,66 @@
   {% set adjusted_temp = 31 %}
 {% endif %}
 
-{% set current_temp = states.climate.air_conditioner.attributes.current_temperature|float %}
+{% set current_temp = {% set indoor_temp = states('sensor.indoor_average_temperure')|float %}
+{% set indoor_heat_index = states('sensor.indoor_comfort_heat_index')|float %}
+{% set outdoor_temp = states('sensor.average_outdoor_temperature')|float %}
+{% set current_dew_point = state_attr('weather.forecast_home', 'dew_point')|float %}
+{% set current_cloud_coverage = state_attr('weather.forecast_home', 'cloud_coverage')|float %}
+{% set humidity_difference = states('sensor.humidity_differnace')|float %}
+{% set temp_difference = states('sensor.temperature_difference')|float %}
+{% set sun_state = states('sun.sun') %}
+{% set forecast = state_attr('weather.forecast_home', 'forecast') %}
+{% set ns = namespace(start=0, end=0, min_temp=1000, max_humidity=0, future_temp=0) %}
+
+{% for i in range(0, 3) %}
+  {% set curr_temp = forecast[i]['temperature']|float %}
+  {% set curr_humidity = forecast[i]['humidity']|float %}
+  {% if curr_temp < ns.min_temp %}
+    {% set ns.min_temp = curr_temp %}
+  {% endif %}
+  {% if curr_humidity > ns.max_humidity %}
+    {% set ns.max_humidity = curr_humidity %}
+  {% endif %}
+  {% if curr_temp > ns.future_temp %}
+    {% set ns.future_temp = curr_temp %}
+  {% endif %}
+{% endfor %}
+
+{% set adjusted_temp = ns.min_temp %}
+{% if ns.max_humidity > 50 or current_dew_point > 20 %}
+  {% set adjusted_temp = adjusted_temp - (current_dew_point / 10) %}
+{% endif %}
+{% set adjusted_temp = adjusted_temp + (current_cloud_coverage / 50) %}
+{% if ns.future_temp > indoor_temp %}
+  {% set adjusted_temp = ns.future_temp %}
+{% endif %}
+{% set adjusted_temp = adjusted_temp - (humidity_difference / 10) %}
+{% set adjusted_temp = adjusted_temp + (temp_difference / 5) %}
+{% if sun_state == 'above_horizon' %}
+  {% set adjusted_temp = adjusted_temp + 3 %}
+{% elif sun_state == 'below_horizon' %}
+  {% set adjusted_temp = adjusted_temp - 2 %}
+{% endif %}
+{% if adjusted_temp < 20 %}
+  {% set adjusted_temp = 20 %}
+{% elif adjusted_temp > 31 %}
+  {% set adjusted_temp = 31 %}
+{% endif %}
+
+{% set current_temp = states('sensor.indoor_average_temperure')|float %}
+{% set temp_diff = adjusted_temp - current_temp %}
+{% set step = 2 %}
+{% if temp_diff > step %}
+  {% set final_temp = current_temp + step %}
+{% elif temp_diff < -step %}
+  {% set final_temp = current_temp - step %}
+{% else %}
+  {% set final_temp = adjusted_temp %}
+{% endif %}
+
+{% set temperature_difference = final_temp - adjusted_temp %}
+
+{{ temperature_difference|round|int }} %}
 {% set temp_diff = adjusted_temp - current_temp %}
 {% set step = 2 %}
 {% if temp_diff > step %}
