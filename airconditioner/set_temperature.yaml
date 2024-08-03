@@ -3,21 +3,21 @@ target:
   entity_id: climate.air_conditioner
 data_template:
   temperature: >
-    {% set indoor_temp = states('sensor.indoor_average_temperure')|float %} {%
-    set outdoor_temp = states('sensor.average_outdoor_temperature')|float %} {%
-    set indoor_humidity = states('sensor.indoor_average_humidity')|float %} {%
-    set outdoor_humidity = states('sensor.average_outside_humidity')|float %} {%
-    set current_humidity = state_attr('weather.forecast_home', 'humidity')|float
-    %} {% set current_dew_point = state_attr('weather.forecast_home',
-    'dew_point')|float %} {% set current_cloud_coverage =
-    state_attr('weather.forecast_home', 'cloud_coverage')|float %} {% set
-    current_pressure  = state_attr('weather.forecast_home', 'pressure')|float %}
-    {% set sun_state = states('sun.sun') %} {% set forecast =
-    state_attr('weather.forecast_home', 'forecast') %} {% set ns =
-    namespace(min_temp=1000, max_humidity=0, max_wind_speed=0,
-    max_precipitation=0) %} {% set target_temp = indoor_temp %} {% set temp_diff
-    = outdoor_temp - indoor_temp %} {% set humidity_diff = outdoor_humidity -
-    indoor_humidity %} {% set current_season = states('sensor.season') %}
+    {% set indoor_temp = states('sensor.indoor_average_temperure')|float %}
+    {% set outdoor_temp = states('sensor.average_outdoor_temperature')|float %}
+    {% set indoor_humidity = states('sensor.indoor_average_humidity')|float %}
+    {% set outdoor_humidity = states('sensor.average_outside_humidity')|float %}
+    {% set current_humidity = state_attr('weather.forecast_home', 'humidity')|float %}
+    {% set current_dew_point = state_attr('weather.forecast_home', 'dew_point')|float %}
+    {% set current_cloud_coverage = state_attr('weather.forecast_home', 'cloud_coverage')|float %}
+    {% set current_pressure  = state_attr('weather.forecast_home', 'pressure')|float %}
+    {% set sun_state = states('sun.sun') %}
+    {% set forecast = state_attr('weather.forecast_home', 'forecast') %}
+    {% set ns = namespace(min_temp=1000, max_humidity=0, max_wind_speed=0, max_precipitation=0) %}
+    {% set target_temp = indoor_temp %}
+    {% set temp_diff = outdoor_temp - indoor_temp %}
+    {% set humidity_diff = outdoor_humidity - indoor_humidity %}
+    {% set current_season = states('sensor.season') %}
 
     {% for i in range(0, 3) %}
       {% set curr_temp = forecast[i]['temperature']|float %}
@@ -48,7 +48,8 @@ data_template:
       {% set target_temp = target_temp - 0.1 - humidity_diff/20 %}
     {% elif sun_state == 'above_horizon' and ns.max_humidity < 30 %}
       {% set target_temp = target_temp + 0.1 + humidity_diff/20 %}
-    {% endif %} {% if sun_state == 'below_horizon' and ns.max_humidity > 50 %}
+    {% endif %}
+    {% if sun_state == 'below_horizon' and ns.max_humidity > 50 %}
       {% set target_temp = target_temp - 1 - humidity_diff/10 %}
     {% elif sun_state == 'below_horizon' and ns.max_humidity < 30 %}
       {% set target_temp = target_temp + 1 + humidity_diff/10 %}
@@ -82,7 +83,8 @@ data_template:
       {% set target_temp = target_temp - 0.1 %}
     {% elif sun_state == 'above_horizon' and indoor_humidity < 30 %}
       {% set target_temp = target_temp + 0.1 %}
-    {% endif %} {% if sun_state == 'below_horizon' and indoor_humidity > 60 %}
+    {% endif %}
+    {% if sun_state == 'below_horizon' and indoor_humidity > 60 %}
       {% set target_temp = target_temp - 1 %}
     {% elif sun_state == 'below_horizon' and indoor_humidity < 30 %}
       {% set target_temp = target_temp + 1 %}
@@ -92,8 +94,8 @@ data_template:
       {% set target_temp = target_temp + 0.1 %}
     {% elif sun_state == 'above_horizon' and current_pressure < 1000 %}
       {% set target_temp = target_temp - 0.1 %}
-    {% endif %} {% if sun_state == 'below_horizon' and current_pressure > 1020
-    %}
+    {% endif %}
+    {% if sun_state == 'below_horizon' and current_pressure > 1020 %}
       {% set target_temp = target_temp + 1 %}
     {% elif sun_state == 'below_horizon' and current_pressure < 1000 %}
       {% set target_temp = target_temp - 1 %}
@@ -107,8 +109,8 @@ data_template:
       {% set target_temp = target_temp - 0.1 %}
     {% elif sun_state == 'above_horizon' and current_season == 'autumn' %}
       {% set target_temp = target_temp + 0.1 %}
-    {% endif %} {% if sun_state == 'below_horizon' and current_season ==
-    'summer' %}
+    {% endif %}
+    {% if sun_state == 'below_horizon' and current_season == 'summer' %}
       {% set target_temp = target_temp - 1 %}
     {% elif sun_state == 'below_horizon' and current_season == 'winter' %}
       {% set target_temp = target_temp + 1 %}
@@ -122,7 +124,8 @@ data_template:
       {% set target_temp = 16 %}
     {% elif sun_state == 'above_horizon' and target_temp > 31 %}
       {% set target_temp = 31 %}
-    {% endif %} {% if sun_state == 'below_horizon' and target_temp < 18 %}
+    {% endif %}
+    {% if sun_state == 'below_horizon' and target_temp < 18 %}
       {% set target_temp = 18 %}
     {% elif sun_state == 'below_horizon' and target_temp > 25 %}
       {% set target_temp = 25 %}
