@@ -1,159 +1,159 @@
-# Home Assistant Climate Control Automation
+# README for `set_temperature.yaml`
 
-This project uses Home Assistant to automate the control of an air conditioner based on various environmental factors.
+This README provides a comprehensive breakdown of the Jinja template used in the `set_temperature.yaml` file. This template is designed to dynamically set the temperature for a climate control system based on various user preferences and sensor readings.
 
-## Features
+## Overview
 
-- **Dynamic Temperature Adjustment**: The script adjusts the air conditioner's temperature based on indoor and outdoor temperatures, humidity, dew point, cloud coverage, wind speed, and the sun's position.
-- **Weather Forecast Integration**: The script uses weather forecast data to anticipate changes in the environment and adjust the temperature accordingly.
+The Jinja template in this file is used to calculate the target temperature for an air conditioner based on a variety of factors, including user preferences, indoor and outdoor conditions, and weather forecasts. The calculated temperature is then set using the `climate.set_temperature` service.
 
-## How It Works
+## Breakdown of the Jinja Template
 
-The script uses the `climate.set_temperature` service in Home Assistant to set the temperature of the air conditioner. It calculates the desired temperature using a data template that takes into account various environmental factors.
+### User Preferences
 
-Here's a more detailed breakdown:
+These variables allow users to customize their temperature settings:
 
-### Variables
+- `daytime_additional_cooling`: A boolean indicating whether additional cooling is desired during the day.
+- `ac_temp_min`: The minimum temperature the air conditioner can be set to.
+- `ac_temp_max`: The maximum temperature the air conditioner can be set to.
+- `sleeping_temp_min_user`: The minimum temperature preferred by the user for sleeping.
+- `sleeping_temp_max_user`: The maximum temperature preferred by the user for sleeping.
 
-The script starts by setting a series of variables using the states of various sensors and weather attributes. These variables include indoor and outdoor temperatures, humidity, dew point, cloud coverage, pressure, sun state, and season.
+### Sensor Readings
 
-```yaml
-{% set indoor_temp = states('sensor.indoor_average_temperature')|float %}
-{% set outdoor_temp = states('sensor.average_outdoor_temperature')|float %}
-{% set indoor_humidity = states('sensor.indoor_average_humidity')|float %}
-{% set outdoor_humidity = states('sensor.average_outside_humidity')|float %}
-{% set current_humidity = state_attr('weather.forecast_home', 'humidity')|float %}
-{% set current_dew_point = state_attr('weather.forecast_home', 'dew_point')|float %}
-{% set current_cloud_coverage = state_attr('weather.forecast_home', 'cloud_coverage')|float %}
-{% set current_pressure  = state_attr('weather.forecast_home', 'pressure')|float %}
-{% set sun_state = states('sun.sun') %}
-{% set forecast = state_attr('weather.forecast_home', 'forecast') %}
-{% set ns = namespace(min_temp=1000, max_humidity=0, max_wind_speed=0, max_precipitation=0) %}
-{% set target_temp = indoor_temp %}
-{% set temp_diff = outdoor_temp - indoor_temp %}
-{% set humidity_diff = outdoor_humidity - indoor_humidity %}
-{% set current_season = states('sensor.season') %}
-```
+These variables capture the current state of various sensors:
 
-### Forecast Loop
+- `indoor_temp`: The average indoor temperature.
+- `outdoor_temp`: The average outdoor temperature.
+- `indoor_humidity`: The average indoor humidity.
+- `outdoor_humidity`: The average outdoor humidity.
+- `current_humidity`: The current humidity from the weather forecast.
+- `current_dew_point`: The current dew point from the weather forecast.
+- `current_cloud_coverage`: The current cloud coverage from the weather forecast.
+- `current_pressure`: The current atmospheric pressure from the weather forecast.
+- `sun_state`: The current state of the sun (above or below the horizon).
+- `forecast`: The weather forecast data.
+- `current_season`: The current season.
 
-This loop is iterating over the first three entries in the weather forecast. The `range(0, 3)` function generates a sequence of numbers from 0 to 2, which are used as indices to access the first three entries in the forecast.
+### Temperature Adjustment Logic
 
-```yaml
-{% for i in range(0, 3) %}
-```
+This section contains the logic for adjusting the target temperature based on various conditions:
 
-For each entry in the forecast, it's extracting the temperature, humidity, wind speed, and precipitation, and converting them to floating point numbers.
+1. **Setting Minimum and Maximum Sleeping Temperatures**:
+    ```jinja
+    {% set sleeping_temp_min = sleeping_temp_min_user if sleeping_temp_min_user >= ac_temp_min else ac_temp_min %}
+    {% set sleeping_temp_max = sleeping_temp_max_user if sleeping_temp_max_user <= ac_temp_max else ac_temp_max %}
+    ```
+    This ensures that the user-defined sleeping temperature limits are within the acceptable range of the air conditioner.
 
-```yaml
-{% set curr_temp = forecast[i]['temperature']|float %}
-{% set curr_humidity = forecast[i]['humidity']|float %}
-{% set curr_wind_speed = forecast[i]['wind_speed']|float %}
-{% set curr_precipitation = forecast[i]['precipitation']|float %}
-```
+2. **Initializing Namespace Variables**:
+    ```jinja
+    {% set ns = namespace(min_temp=1000, max_humidity=0, max_wind_speed=0, max_precipitation=0) %}
+    ```
+    Namespace variables are used to store the minimum temperature, maximum humidity, maximum wind speed, and maximum precipitation from the forecast data.
 
-Then, it's checking if the current temperature (`curr_temp`) is lower than the minimum temperature stored in the namespace (`ns.min_temp`). If it is, it updates `ns.min_temp` with `curr_temp`.
+3. **Calculating Differences**:
+    ```jinja
+    {% set humidity_diff = outdoor_humidity - indoor_humidity %}
+    {% set temp_diff = outdoor_temp - indoor_temp %}
+    ```
+    These variables calculate the difference between outdoor and indoor humidity and temperature, which are used later in the adjustments.
 
-```yaml
-{% if curr_temp < ns.min_temp %}
-  {% set ns.min_temp = curr_temp %}
-{% endif %}
-```
+4. **Processing Forecast Data**:
+    ```jinja
+    {% for i in range(0, 3) %}
+      {% set curr_temp = forecast[i]['temperature']|float %}
+      {% set curr_humidity = forecast[i]['humidity']|float %}
+      {% set curr_wind_speed = forecast[i]['wind_speed']|float %}
+      {% set curr_precipitation = forecast[i]['precipitation']|float %}
+      {% if curr_temp < ns.min_temp %}
+        {% set ns.min_temp = curr_temp %}
+      {% endif %}
+      {% if curr_humidity > ns.max_humidity %}
+        {% set ns.max_humidity = curr_humidity %}
+      {% endif %}
+      {% if curr_wind_speed > ns.max_wind_speed %}
+        {% set ns.max_wind_speed = curr_wind_speed %}
+      {% endif %}
+      {% if curr_precipitation > ns.max_precipitation %}
+        {% set ns.max_precipitation = curr_precipitation %}
+      {% endif %}
+    {% endfor %}
+    ```
+    This loop processes the forecast data for the next three hours to find the minimum temperature, maximum humidity, maximum wind speed, and maximum precipitation.
 
-Similarly, it's checking if the current humidity (`curr_humidity`) is higher than the maximum humidity stored in the namespace (`ns.max_humidity`). If it is, it updates `ns.max_humidity` with `curr_humidity`.
+5. **Adjusting Temperature Based on Sun State**:
+    - **Daytime**:
+        ```jinja
+        {% if sun_state == 'above_horizon' %}
+          {% set target_temp = indoor_temp | round(0, 'floor') %}
+          {% if daytime_additional_cooling %}
+            {% set target_temp = target_temp - 1 %}
+          {% endif %}
+        ```
+        During the day, the target temperature is set to the rounded indoor temperature. If additional cooling is desired, one degree is subtracted.
 
-```yaml
-{% if curr_humidity > ns.max_humidity %}
-  {% set ns.max_humidity = curr_humidity %}
-{% endif %}
-```
+    - **Nighttime**:
+        ```jinja
+        {% elif sun_state == 'below_horizon' %}
+          {% set target_temp = indoor_temp - 1 - temp_diff/10 %}
+          {% if ns.max_humidity > 50 %}
+            {% set target_temp = target_temp - 1 - humidity_diff/10 %}
+          {% elif ns.max_humidity < 30 %}
+            {% set target_temp = target_temp + 1 + humidity_diff/10 %}
+          {% endif %}
+          {% if current_dew_point > 18 %}
+            {% set target_temp = target_temp - 1 %}
+          {% endif %}
+          {% if current_cloud_coverage < 30 %}
+            {% set target_temp = target_temp + 1 %}
+          {% endif %}
+          {% if ns.max_wind_speed > 15 %}
+            {% set target_temp = target_temp + 1 %}
+          {% endif %}
+          {% if ns.max_precipitation > 0 %}
+            {% set target_temp = target_temp - 1 %}
+          {% endif %}
+          {% if indoor_humidity > 60 %}
+            {% set target_temp = target_temp - 1 %}
+          {% elif indoor_humidity < 30 %}
+            {% set target_temp = target_temp + 1 %}
+          {% endif %}
+          {% if current_pressure > 1020 %}
+            {% set target_temp = target_temp + 1 %}
+          {% elif current_pressure < 1000 %}
+            {% set target_temp = target_temp - 1 %}
+          {% endif %}
+          {% if current_season == 'summer' %}
+            {% set target_temp = target_temp - 1 %}
+          {% elif current_season == 'winter' %}
+            {% set target_temp = target_temp + 1 %}
+          {% elif current_season == 'spring' %}
+            {% set target_temp = target_temp - 0.5 %}
+          {% elif current_season == 'autumn' %}
+            {% set target_temp = target_temp + 0.5 %}
+          {% endif %}
+          {% if target_temp < sleeping_temp_min %}
+            {% set target_temp = sleeping_temp_min %}
+          {% elif target_temp > sleeping_temp_max %}
+            {% set target_temp = sleeping_temp_max %}
+          {% endif %}
+        {% endif %}
+        ```
+        At night, the target temperature is adjusted based on various factors such as temperature difference, humidity, dew point, cloud coverage, wind speed, precipitation, indoor humidity, atmospheric pressure, and the current season. The final target temperature is then constrained within the user-defined sleeping temperature limits.
 
-It's also checking if the current wind speed (`curr_wind_speed`) is higher than the maximum wind speed stored in the namespace (`ns.max_wind_speed`). If it is, it updates `ns.max_wind_speed` with `curr_wind_speed`.
+        - **Initial Temperature Setting**: The target temperature is initially set to the indoor temperature minus one degree, further adjusted by the temperature difference between outdoor and indoor temperatures divided by 10.
+        - **Humidity Adjustment**: If the maximum humidity from the forecast is greater than 50%, the target temperature is decreased by one degree and further adjusted by the humidity difference divided by 10. If the maximum humidity is less than 30%, the target temperature is increased by one degree and further adjusted by the humidity difference divided by 10.
+        - **Dew Point Adjustment**: If the current dew point is greater than 18°C, the target temperature is decreased by one degree.
+        - **Cloud Coverage Adjustment**: If the current cloud coverage is less than 30%, the target temperature is increased by one degree.
+        - **Wind Speed Adjustment**: If the maximum wind speed from the forecast is greater than 15 km/h, the target temperature is increased by one degree.
+        - **Precipitation Adjustment**: If there is any precipitation in the forecast, the target temperature is decreased by one degree.
+        - **Indoor Humidity Adjustment**: If the indoor humidity is greater than 60%, the target temperature is decreased by one degree. If the indoor humidity is less than 30%, the target temperature is increased by one degree.
+        - **Atmospheric Pressure Adjustment**: If the current atmospheric pressure is greater than 1020 hPa, the target temperature is increased by one degree. If the current atmospheric pressure is less than 1000 hPa, the target temperature is decreased by one degree.
+        - **Seasonal Adjustment**: The target temperature is adjusted based on the current season: decreased by one degree in summer, increased by one degree in winter, decreased by 0.5 degrees in spring, and increased by 0.5 degrees in autumn.
+        - **Final Temperature Constraints**: The final target temperature is constrained within the user-defined minimum and maximum sleeping temperatures to ensure comfort.
 
-```yaml
-{% if curr_wind_speed > ns.max_wind_speed %}
-  {% set ns.max_wind_speed = curr_wind_speed %}
-{% endif %}
-```
-
-Finally, it's checking if the current precipitation (`curr_precipitation`) is higher than the maximum precipitation stored in the namespace (`ns.max_precipitation`). If it is, it updates `ns.max_precipitation` with `curr_precipitation`.
-
-```yaml
-{% if curr_precipitation > ns.max_precipitation %}
-  {% set ns.max_precipitation = curr_precipitation %}
-{% endif %}
-```
-
-The loop ends here:
-
-```yaml
-{% endfor %}
-```
-
-After the loop, `ns.min_temp`, `ns.max_humidity`, `ns.max_wind_speed`, and `ns.max_precipitation` will hold the minimum temperature, maximum humidity, maximum wind speed, and maximum precipitation from the first three entries in the forecast, respectively. These values can then be used in subsequent calculations. 
-
-### Adjusted Temperature Calculation
-
-The script calculates the adjusted temperature based on various conditions. It starts with the indoor temperature and then adjusts it based on the sun's position, humidity, dew point, cloud coverage, wind speed, precipitation, and season.
-
-```yaml
-{% if sun_state == 'above_horizon' %}
-  {% set target_temp = indoor_temp + 0.1 + temp_diff/10 %}
-{% elif sun_state == 'below_horizon' %}
-  {% set target_temp = indoor_temp - 1 - temp_diff/10 %}
-{% endif %}
-```
-
-The script continues to adjust the target temperature based on various conditions:
-
-```yaml
-{% if sun_state == 'above_horizon' and ns.max_humidity > 50 %}
-  {% set target_temp = target_temp - 0.1 - humidity_diff/20 %}
-{% elif sun_state == 'above_horizon' and ns.max_humidity < 30 %}
-  {% set target_temp = target_temp + 0.1 + humidity_diff/20 %}
-{% endif %}
-{% if sun_state == 'below_horizon' and ns.max_humidity > 50 %}
-  {% set target_temp = target_temp - 1 - humidity_diff/10 %}
-{% elif sun_state == 'below_horizon' and ns.max_humidity < 30 %}
-  {% set target_temp = target_temp + 1 + humidity_diff/10 %}
-{% endif %}
-
-{% if sun_state == 'above_horizon' and current_dew_point > 18 %}
-  {% set target_temp = target_temp - 0.1 %}
-{% elif sun_state == 'below_horizon' and current_dew_point > 18 %}
-  {% set target_temp = target_temp - 1 %}
-{% endif %}
-
-{% if sun_state == 'above_horizon' and current_cloud_coverage < 30 %}
-  {% set target_temp = target_temp + 0.1 %}
-{% elif sun_state == 'below_horizon' and current_cloud_coverage < 30 %}
-  {% set target_temp = target_temp + 1 %}
-{% endif %}
-```
-
-Finally, it ensures that the target temperature is within a certain range based on the sun's position.
-
-```yaml
-{% if sun_state == 'above_horizon' and target_temp < 16 %}
-  {% set target_temp = 16 %}
-{% elif sun_state == 'above_horizon' and target_temp > 31 %}
-  {% set target_temp = 31 %}
-{% endif %}
-{% if sun_state == 'below_horizon' and target_temp < 18 %}
-  {% set target_temp = 18 %}
-{% elif sun_state == 'below_horizon' and target_temp > 25 %}
-  {% set target_temp = 25 %}
-{% endif %}
-```
-
-Finally, the script outputs the target temperature:
-
-```yaml
-{{ target_temp|round|int }}
-```
-
-This is the temperature that will be set for the air conditioner. The temperature is rounded to the nearest integer for simplicity.
-
-## Usage
-
-To use this script, add it to your Home Assistant configuration and ensure you have the necessary sensors and weather integration set up.
+6. **Final Temperature Calculation**:
+    ```jinja
+    {{ target_temp|round|int }}
+    ```
+    The final target temperature is rounded to the nearest integer.
