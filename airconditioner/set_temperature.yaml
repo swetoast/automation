@@ -23,7 +23,7 @@ data_template:
     {% set forecast = state_attr('weather.forecast_home', 'forecast') %}
     {% set current_season = states('sensor.season') %}
     
-    {#  Variables for Temperature Adjustment Logic #}
+    {# Variables for Temperature Adjustment Logic #}
     {% set sleeping_temp_min = sleeping_temp_min_user if sleeping_temp_min_user >= ac_temp_min else ac_temp_min %}
     {% set sleeping_temp_max = sleeping_temp_max_user if sleeping_temp_max_user <= ac_temp_max else ac_temp_max %}
     {% set ns = namespace(min_temp=1000, max_humidity=0, max_wind_speed=0, max_precipitation=0) %}
