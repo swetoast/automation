@@ -3,13 +3,13 @@ target:
   entity_id: climate.air_conditioner
 data_template:
   temperature: >
-    # User Preferences
+    {# User Preferences #}
     {% set daytime_additional_cooling = true %}
     {% set ac_temp_min = 16 %}
     {% set ac_temp_max = 31 %}
     {% set sleeping_temp_min_user = 18 %}
     {% set sleeping_temp_max_user = 25 %}
-    # Sensor Readings
+    {# Sensor Readings #}
     {% set indoor_temp = states('sensor.indoor_average_temperure')|float %}
     {% set outdoor_temp = states('sensor.average_outdoor_temperature')|float %}
     {% set indoor_humidity = states('sensor.indoor_average_humidity')|float %}
@@ -20,12 +20,13 @@ data_template:
     {% set current_pressure = state_attr('weather.forecast_home', 'pressure')|float %}
     {% set sun_state = states('sun.sun') %}
     {% set forecast = state_attr('weather.forecast_home', 'forecast') %}
-    {% set humidity_diff = outdoor_humidity - indoor_humidity %}
+
     {% set current_season = states('sensor.season') %}
-    # Variables for Temperature Adjustment Logic
+    {#  Variables for Temperature Adjustment Logic #}
     {% set sleeping_temp_min = sleeping_temp_min_user if sleeping_temp_min_user >= ac_temp_min else ac_temp_min %}
     {% set sleeping_temp_max = sleeping_temp_max_user if sleeping_temp_max_user <= ac_temp_max else ac_temp_max %}
     {% set ns = namespace(min_temp=1000, max_humidity=0, max_wind_speed=0, max_precipitation=0) %}
+    {% set humidity_diff = outdoor_humidity - indoor_humidity %}
     {% set temp_diff = outdoor_temp - indoor_temp %}
 
     {% for i in range(0, 3) %}
