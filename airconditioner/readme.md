@@ -5,7 +5,6 @@ This project uses Home Assistant to automate the control of an air conditioner b
 ## Features
 
 - **Dynamic Temperature Adjustment**: The script adjusts the air conditioner's temperature based on indoor and outdoor temperatures, humidity, dew point, cloud coverage, wind speed, and the sun's position.
-- **Gradual Temperature Change**: The script ensures that the temperature changes gradually, avoiding sudden jumps in temperature.
 - **Weather Forecast Integration**: The script uses weather forecast data to anticipate changes in the environment and adjust the temperature accordingly.
 
 ## How It Works
