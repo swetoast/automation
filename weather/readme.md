@@ -1,5 +1,3 @@
-Sure, here's a breakdown of your Jinja code in the style of a README:
-
 # README for `weather_report.jinja`
 
 This README provides a comprehensive breakdown of the Jinja template used in the `weather_report.jinja` file. This template is designed to dynamically generate a weather report based on various sensor readings and forecast data.
