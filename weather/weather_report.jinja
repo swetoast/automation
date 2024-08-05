@@ -235,7 +235,7 @@
   {% endif %}
 {% endif %}
 
-{% set initial_message = "Good " ~ current_season | capitalize ~" " ~ timeofday ~ "!" %}
+{% set initial_message = "Good " ~ timeofday ~ "! Typical " ~ current_season ~ " weather today." %}
 {% if sweden_calendar %}
     {% set initial_message = initial_message ~ " Did you know that today is " ~ sweden_calendar_message ~ "?" %}
 {% endif %}
