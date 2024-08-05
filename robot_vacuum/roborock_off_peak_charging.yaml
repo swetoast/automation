@@ -1,0 +1,42 @@
+alias: "Auto-Update: Set Roborock Off-Peak Time"
+description: >-
+  This automation checks the electricity price every 24 hours and sets the
+  off-peak start and end times for the Roborock S8 Pro Ultra. The off-peak
+  period is determined by the time of the lowest electricity price over a 4 hour
+  period.
+trigger:
+  - platform: time_pattern
+    hours: "0"
+action:
+  - service: time.set_value
+    target:
+      entity_id: time.roborock_s8_pro_ultra_off_peak_start
+    data:
+      time: >-
+        {% set tod = state_attr('sensor.power_cost', 'raw_today') %}
+        {% set ns = namespace(start=0, end=0, min_sum=1000) %}
+        {% for i in range(0, 21) %}
+          {% set curr_sum = tod[i].value + tod[i+1].value + tod[i+2].value + tod[i+3].value %}
+          {% if curr_sum < ns.min_sum %}
+            {% set ns.start = i %}
+            {% set ns.end = i+3 %}
+            {% set ns.min_sum = curr_sum %}
+          {% endif %}
+        {% endfor %}
+        {{ tod[ns.start].start.strftime('%H:%M:%S') }}
+  - service: time.set_value
+    target:
+      entity_id: time.roborock_s8_pro_ultra_off_peak_end
+    data:
+      time: >-
+        {% set tod = state_attr('sensor.power_cost', 'raw_today') %}
+        {% set ns = namespace(start=0, end=0, min_sum=1000) %}
+        {% for i in range(0, 21) %}
+          {% set curr_sum = tod[i].value + tod[i+1].value + tod[i+2].value + tod[i+3].value %}
+          {% if curr_sum < ns.min_sum %}
+            {% set ns.start = i %}
+            {% set ns.end = i+3 %}
+            {% set ns.min_sum = curr_sum %}
+          {% endif %}
+        {% endfor %}
+        {{ tod[ns.end].end.strftime('%H:%M:%S') }}
