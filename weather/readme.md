@@ -34,6 +34,13 @@ These variables capture the current state of various sensors:
 - `lightning_azimuth`: The azimuth of the lightning.
 - `uv_index`: The UV index.
 - `pm25`: The PM2.5 air quality data.
+- `pollen_data`: The pollen data.
+- `alder_pollen`: The Alder pollen level.
+- `birch_pollen`: The Birch pollen level.
+- `grasses_pollen`: The Grasses pollen level.
+- `mugwort_pollen`: The Mugwort pollen level.
+- `olive_tree_pollen`: The Olive Tree pollen level.
+- `ragweed_pollen`: The Ragweed pollen level.
 
 ### Namespace Variables
 
@@ -162,3 +169,4 @@ This part of the code generates a weather report message based on the calculated
 - **Frost Risk**: If there's a risk of frost, the message includes a warning.
 - **Aurora Chance**: If there's a chance of seeing the aurora, the message includes the probability.
 - **Air Quality**: The message includes the PM2.5 air quality status.
+- **Pollen Data**: The message includes the pollen data for Alder, Birch, Grasses, Mugwort, Olive Tree, and Ragweed.
