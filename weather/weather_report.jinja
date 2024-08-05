@@ -126,8 +126,6 @@
     {% endfor %}
 {% endfor %}
 
-{% set final_message = "" %}
-
 {% set frost_risk_message = '' %}
 {% if current_frost_risk != 'no_risk' %}
   {% set frost_risk = current_frost_risk.replace('_', ' ') %}
