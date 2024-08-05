@@ -4,7 +4,7 @@ This README provides a comprehensive breakdown of the Jinja template used in the
 
 ## Overview
 
-The Jinja template in this file is used to calculate the average forecast over the next three periods for each attribute (like temperature, humidity, wind speed, etc.) and rounds the values to the nearest tenth. It also includes the seasonal greetings, thunder probability, frost risk, UV index, pollen levels, aurora chance, air quality, and lightning counter.
+The Jinja template in this file is used to calculate the average forecast over the next three periods for each attribute (like temperature, humidity, wind speed, etc.) and rounds the values to the nearest tenth. It also includes the seasonal greetings, thunder probability, frost risk, UV index, air quality (PM2.5), aurora chance, and lightning counter.
 
 ## Breakdown of the Jinja Template
 
@@ -13,20 +13,27 @@ The Jinja template in this file is used to calculate the average forecast over t
 These variables capture the current state of various sensors:
 
 - `timeofday`: The current time of day.
-- `weather_condition`: The current weather condition.
-- `forecast`: The weather forecast data.
-- `season`: The current season.
-- `thunder_probability`: The probability of thunder.
-- `frost_risk`: The risk of frost.
-- `uv_index`: The UV index.
 - `sweden_calendar`: The state of the Sweden calendar.
-- `aurora_57_12`: The state of the aurora.
-- `pollen_types`: The types of pollen.
-- `pollen_levels`: The levels of pollen.
-- `pm25`: The PM2.5 air quality data.
+- `current_weather_condition`: The current weather condition.
+- `current_cloud_coverage`: The current cloud coverage.
+- `current_pressure`: The current atmospheric pressure.
+- `current_dew_point`: The current dew point.
+- `current_temperature`: The current temperature.
+- `current_humidity`: The current humidity.
+- `current_wind_bearing`: The current wind bearing.
+- `current_wind_gust_speed`: The current wind gust speed.
+- `current_wind_speed`: The current wind speed.
+- `current_precipitation`: The current precipitation.
+- `current_season`: The current season.
+- `aurora_chance`: The chance of seeing the aurora.
+- `aurora_visible`: Whether the aurora is currently visible.
+- `current_frost_risk`: The risk of frost.
+- `thunder_probability`: The probability of thunder.
 - `lightning_counter`: The lightning counter.
 - `lightning_distance`: The distance of the lightning.
 - `lightning_azimuth`: The azimuth of the lightning.
+- `uv_index`: The UV index.
+- `pm25`: The PM2.5 air quality data.
 
 ### Namespace Variables
 
@@ -70,32 +77,75 @@ This section contains the logic for calculating the average of each attribute (l
 {% set median_low_temp = (ns.low_temp_sum / 3)|round(1) %}
 {% set median_gust_speed = (ns.gust_speed_sum / 3)|round(1) %}
 {% set median_precipitation = (ns.precipitation_sum / 3)|round(1) %}
-{% set condition = ns.condition %}
+{% set upcoming_condition = ns.condition %}
 {% set median_precipitation_probability = (ns.precipitation_probability / 3)|round(1) %}
 ```
-
-I apologize for the oversight. Here's the expanded section of the README that covers the Weather Report Message in more detail:
 
 ### Weather Report Message
 
 This section contains the logic for generating the weather report message:
 
 ```jinja
-Good {{timeofday}}!
+{% set initial_message = "Good " ~ timeofday ~ "!" %}
 {% if sweden_calendar %}
-    Did you know that today is {{sweden_calendar_message}}?
+    {% set initial_message = initial_message ~ " Did you know that today is " ~ sweden_calendar_message ~ "?" %}
 {% endif %}
-Today,
-{% if season == 'spring' %}
-    as spring is in the air,
-{% elif season == 'summer' %}
-    in the heart of summer,
-{% elif season == 'autumn' %}
-    with autumn leaves falling,
-{% elif season == 'winter' %}
-    in the midst of winter,
+
+{% set final_message = initial_message ~ " " %}
+
+{% if current_weather_condition %}
+  {% set final_message = final_message ~ 'The current weather is ' ~ current_weather_condition ~ '. ' %}
 {% endif %}
-we're expecting a {{ condition }} day with temperatures reaching up to {{ median_temp }}°C. The humidity will be around {{ median_humidity }}%. The wind speed will be around {{ median_wind_speed }} km/h.
+
+{% if upcoming_condition and current_weather_condition != upcoming_condition %}
+  {% set final_message = final_message ~ 'Expect ' ~ upcoming_condition ~ ' weather soon. ' %}
+{% endif %}
+
+{% if median_temp %}
+  {% set final_message = final_message ~ 'The median temperature is ' ~ median_temp ~ current_temperature_unit ~ ', with a low of ' ~ median_low_temp ~ current_temperature_unit ~ '. ' %}
+{% endif %}
+
+{% if median_humidity %}
+  {% set final_message = final_message ~ 'Humidity levels are around ' ~ median_humidity ~ current_humidity_unit ~ '. ' %}
+{% endif %}
+
+{% if pressure_message %}
+  {% set final_message = final_message ~ pressure_message ~ ' ' %}
+{% endif %}
+
+{% if wind_speed_message %}
+  {% set final_message = final_message ~ wind_speed_message %}
+{% endif %}
+
+{% if cloud_coverage_message %}
+  {% set final_message = final_message ~ cloud_coverage_message ~ ' ' %}
+{% endif %}
+
+{% if precipitation_message %}
+  {% set final_message = final_message ~ precipitation_message ~ ' ' %}
+{% endif %}
+
+{% if lightning_message %}
+  {% set final_message = final_message ~ lightning_message %}
+{% endif %}
+
+{% if aurora_message %}
+  {% set final_message = final_message ~ aurora_message %}
+{% endif %}
+
+{% if frost_risk_message %}
+  {% set final_message = final_message ~ frost_risk_message %}
+{% endif %}
+
+{% if uv_index_message %}
+  {% set final_message = final_message ~ uv_index_message %}
+{% endif %}
+
+{% if pm25_message %}
+  {% set final_message = final_message ~ pm25_message %}
+{% endif %}
+
+{{ final_message }}
 ```
 
 This part of the code generates a weather report message based on the calculated averages and other sensor readings. It includes:
@@ -106,60 +156,9 @@ This part of the code generates a weather report message based on the calculated
 - **Temperature**: The message includes the expected average temperature for the day.
 - **Humidity**: The message includes the expected average humidity for the day.
 - **Wind speed**: The message includes the expected average wind speed for the day.
-
-The message also includes additional information based on other sensor readings:
-
-```jinja
-{% if uv_index < 3 %}
-    The UV Index is low today.
-{% elif uv_index < 6 %}
-    The UV Index is moderate today.
-{% elif uv_index < 8 %}
-    The UV Index is high today.
-{% elif uv_index < 11 %}
-    The UV Index is very high today. Please take extra precautions if you need to be outdoors.
-{% else %}
-    The UV Index is extreme today. Please take extra precautions if you need to be outdoors.
-{% endif %}
-
-{% if thunder_probability is not none and thunder_probability | int > 33 %}
-    Also, there's a thunder probability of {{ thunder_probability }}%.
-{% endif %}
-
-{% if lightning_counter is not none and lightning_counter | int > 1 %}
-    In fact, there have been {{ lightning_counter }} lightning strikes detected. The most recent one was detected at a distance of {{ lightning_distance }} and an in the direction of {{ lightning_azimuth }} degrees.
-{% endif %}
-
-{% if frost_risk %}
-    And watch out for the frost, there's a {{frost_risk_level}} risk.
-{% endif %}
-
-{% for pollen in pollen_types %}
-    {% set level = state_attr('sensor.pollen_data', pollen)|float %}
-    {% for range, descriptor in pollen_levels.items() %}
-        {% if level >= range[0] and level < range[1] %}
-            For those with allergies, please note that the {{pollen | lower}} pollen levels are {{descriptor}} today.
-        {% endif %}
-    {% endfor %}
-{% endfor %}
-
-{% if aurora_57_12 %}
-    And the cherry on top? There's a {{aurora_57_12_chance}}% chance of seeing the stunning aurora tonight.
-{% endif %}
-
-{% if pm25_status %}
-    And the air quality is {{pm25_status}} outside.
-{% endif %}
-```
-
-This part of the code includes:
-
 - **UV Index**: The message includes the UV Index for the day and provides safety advice based on the index level.
 - **Thunder Probability**: If there's a chance of thunder, the message includes the probability.
 - **Lightning Counter**: If there have been lightning strikes detected, the message includes the number of strikes, the distance of the most recent strike, and the direction of the strike.
 - **Frost Risk**: If there's a risk of frost, the message includes a warning.
-- **Pollen Levels**: For each type of pollen, the message includes the pollen level for the day if it's medium or high.
 - **Aurora Chance**: If there's a chance of seeing the aurora, the message includes the probability.
 - **Air Quality**: The message includes the PM2.5 air quality status.
-
-The message ends with a friendly wish for a great day. This comprehensive weather report provides a wealth of information to help plan the day ahead.
