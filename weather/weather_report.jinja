@@ -26,13 +26,13 @@
 {% set current_humidity_unit = '%' %}
 {% set uv_index = states('sensor.uv_sensor') | float %}
 {% set pm25 = states('sensor.sensor_47571_pm2_5') | int %}
-{% set pollen_data = states('sensor.pollen_data') %}
 {% set alder_pollen = state_attr('sensor.pollen_data', 'Alder') %}
 {% set birch_pollen = state_attr('sensor.pollen_data', 'Birch') %}
 {% set grasses_pollen = state_attr('sensor.pollen_data', 'Grasses') %}
 {% set mugwort_pollen = state_attr('sensor.pollen_data', 'Mugwort') %}
 {% set olive_tree_pollen = state_attr('sensor.pollen_data', 'Olive Tree') %}
 {% set ragweed_pollen = state_attr('sensor.pollen_data', 'Ragweed') %}
+{% set current_weather_condition = states('weather.forecast_home') %}
 
 {% set forecast = state_attr('weather.forecast_home', 'forecast') %}
 
@@ -61,6 +61,17 @@
 {% set median_precipitation = (ns.precipitation_sum / 3)|round(1) %}
 {% set upcoming_condition = ns.condition %}
 {% set median_precipitation_probability = (ns.precipitation_probability / 3)|round(1) %}
+
+{% set weather_state_mapping = {
+  'clear-night': 'clear night',
+  'snowy-rainy': 'sleet',
+  'lightning-rainy': 'thunderstorm',
+  'windy-variant': 'gusty',
+  'partlycloudy': 'partly cloudy'
+} %}
+
+{% set renamed_current_condition = weather_state_mapping[current_weather_condition] if current_weather_condition in weather_state_mapping else current_weather_condition %}
+{% set renamed_upcoming_condition = weather_state_mapping[upcoming_condition] if upcoming_condition in weather_state_mapping else upcoming_condition %}
 
 {% set pressure_message = '' %}
 
@@ -235,11 +246,11 @@
 {% set final_message = initial_message ~ " " %}
 
 {% if current_weather_condition %}
-  {% set final_message = final_message ~ 'The current weather is ' ~ current_weather_condition ~ '. ' %}
+  {% set final_message = final_message ~ 'The current weather is ' ~ renamed_current_condition ~ '. ' %}
 {% endif %}
 
 {% if upcoming_condition and current_weather_condition != upcoming_condition %}
-  {% set final_message = final_message ~ 'Expect ' ~ upcoming_condition ~ ' weather soon. ' %}
+  {% set final_message = final_message ~ 'Expect ' ~ renamed_upcoming_condition ~ ' weather soon. ' %}
 {% endif %}
 
 {% if median_temp %}
