@@ -246,11 +246,11 @@
 {% set final_message = initial_message ~ " " %}
 
 {% if current_weather_condition %}
-  {% set final_message = final_message ~ 'The current weather is ' ~ renamed_current_condition ~ '. ' %}
+  {% set final_message = final_message ~ 'The current weather is ' ~ (weather_state_mapping[current_weather_condition] if current_weather_condition in weather_state_mapping else current_weather_condition) ~ '. ' %}
 {% endif %}
 
 {% if upcoming_condition and current_weather_condition != upcoming_condition %}
-  {% set final_message = final_message ~ 'Expect ' ~ renamed_upcoming_condition ~ ' weather soon. ' %}
+  {% set final_message = final_message ~ 'Expect ' ~ (weather_state_mapping[upcoming_condition] if upcoming_condition in weather_state_mapping else upcoming_condition) ~ ' weather soon. ' %}
 {% endif %}
 
 {% if median_temp %}
