@@ -26,6 +26,13 @@
 {% set current_humidity_unit = '%' %}
 {% set uv_index = states('sensor.uv_sensor') | float %}
 {% set pm25 = states('sensor.sensor_47571_pm2_5') | int %}
+{% set pollen_data = states('sensor.pollen_data') %}
+{% set alder_pollen = state_attr('sensor.pollen_data', 'Alder') %}
+{% set birch_pollen = state_attr('sensor.pollen_data', 'Birch') %}
+{% set grasses_pollen = state_attr('sensor.pollen_data', 'Grasses') %}
+{% set mugwort_pollen = state_attr('sensor.pollen_data', 'Mugwort') %}
+{% set olive_tree_pollen = state_attr('sensor.pollen_data', 'Olive Tree') %}
+{% set ragweed_pollen = state_attr('sensor.pollen_data', 'Ragweed') %}
 
 {% set forecast = state_attr('weather.forecast_home', 'forecast') %}
 
@@ -107,6 +114,20 @@
   {% endif %}
 {% endif %}
 
+{% set ns = namespace(pollen_message='') %}
+{% set pollen_types = {'Alder': alder_pollen, 'Birch': birch_pollen, 'Grasses': grasses_pollen, 'Mugwort': mugwort_pollen, 'Olive Tree': olive_tree_pollen, 'Ragweed': ragweed_pollen} %}
+{% set pollen_levels = {(4, 8): 'medium', (8, float('inf')): 'high'} %}
+
+{% for pollen, level in pollen_types.items() %}
+    {% for range, descriptor in pollen_levels.items() %}
+        {% if level|float >= range[0] and level|float < range[1] %}
+            {% set ns.pollen_message = ns.pollen_message ~ '' ~ pollen ~ ' pollen levels are ' ~ descriptor ~ ' today. ' %}
+        {% endif %}
+    {% endfor %}
+{% endfor %}
+
+{% set final_message = "" %}
+
 {% set frost_risk_message = '' %}
 {% if current_frost_risk != 'no_risk' %}
   {% set frost_risk = current_frost_risk.replace('_', ' ') %}
@@ -116,11 +137,11 @@
 {% set wind_speed_message = '' %}
 {% if current_wind_speed is not none %}
   {% if current_wind_speed < 5 %}
-    {% set wind_speed_message = 'The wind is light today, with a speed of ' ~ current_wind_speed ~ ' ' ~ current_wind_speed_unit ~ '.' %}
+    {% set wind_speed_message = 'The wind is light today, with a speed of ' ~ current_wind_speed ~ ' ' ~ current_wind_speed_unit ~ '. ' %}
   {% elif current_wind_speed < 15 %}
     {% set wind_speed_message = 'The wind is moderate today, with a speed of ' ~ current_wind_speed ~ ' ' ~ current_wind_speed_unit ~ '.' %}
   {% elif current_wind_speed < 30 %}
-    {% set wind_speed_message = 'The wind is strong today, with a speed of ' ~ current_wind_speed ~ ' ' ~ current_wind_speed_unit ~ '. Be careful if you\'re planning any outdoor activities.' %}
+    {% set wind_speed_message = 'The wind is strong today, with a speed of ' ~ current_wind_speed ~ ' ' ~ current_wind_speed_unit ~ '. Be careful if youre planning any outdoor activities.' %}
   {% else %}
     {% set wind_speed_message = 'The wind is very strong today, with a speed of ' ~ current_wind_speed ~ ' ' ~ current_wind_speed_unit ~ '. It might not be safe to be outdoors.' %}
   {% endif %}
@@ -144,7 +165,7 @@
   {% elif current_precipitation < 10 %}
     {% set precipitation_message = 'There is a chance of light rain today.' %}
   {% else %}
-    {% set precipitation_message = 'Rain is expected today. Don\'t forget your umbrella!' %}
+    {% set precipitation_message = 'Rain is expected today. Dont forget your umbrella!' %}
   {% endif %}
 {% endif %}
 
@@ -181,20 +202,20 @@
   {% if uv_index < 3 %}
     {% set uv_index_message = 'The UV index is low today, so no need for extra sun protection.' %}
   {% elif uv_index < 6 %}
-    {% set uv_index_message = 'The UV index is moderate today. Consider wearing sunglasses and sunscreen if you\'re outside.' %}
+    {% set uv_index_message = 'The UV index is moderate today. Consider wearing sunglasses and sunscreen if youre outside.' %}
   {% elif uv_index < 8 %}
-    {% set uv_index_message = 'The UV index is high today. It\'s a good idea to wear sunglasses, sunscreen, and protective clothing.' %}
+    {% set uv_index_message = 'The UV index is high today. Its a good idea to wear sunglasses, sunscreen, and protective clothing.' %}
   {% elif uv_index < 11 %}
     {% set uv_index_message = 'The UV index is very high today. Be sure to wear sunglasses, sunscreen, and protective clothing, and seek shade during midday hours.' %}
   {% else %}
-    {% set uv_index_message = 'The UV index is extremely high today. Take all precautions: wear sunglasses, sunscreen, protective clothing, and avoid being outside during midday hours.' %}
+    {% set uv_index_message = 'The UV index is extremely high today. Take all precautions wear sunglasses, sunscreen, protective clothing, and avoid being outside during midday hours.' %}
   {% endif %}
 {% endif %}
 
 {% set pm25_message = '' %}
 {% if pm25 is not none %}
   {% if pm25 < 12 %}
-    {% set pm25_message = 'The air quality is good today, with low levels of PM2.5.' %}
+    {% set pm25_message = 'The air quality is good today, with low levels of particles in the air.' %}
   {% elif pm25 < 35 %}
     {% set pm25_message = 'The air quality is moderate today. Sensitive individuals should consider reducing prolonged or heavy exertion outdoors.' %}
   {% elif pm25 < 55 %}
@@ -233,6 +254,10 @@
 
 {% if pressure_message %}
   {% set final_message = final_message ~ pressure_message ~ ' ' %}
+{% endif %}
+
+{% if ns.pollen_message %}
+  {% set final_message = final_message ~ ns.pollen_message ~ ' ' %}
 {% endif %}
 
 {% if wind_speed_message %}
