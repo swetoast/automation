@@ -11,7 +11,7 @@
 {% set current_wind_speed = state_attr('weather.forecast_home', 'wind_speed') %}
 {% set current_precipitation = state_attr('weather.forecast_home', 'precipitation') %}
 {% set current_temperature = state_attr('weather.forecast_home', 'temperature') %}
-{% set current_season = states('sensor.seasons') %}
+{% set current_season = states('sensor.season') %}
 {% set aurora_chance = states('sensor.aurora_57_12') %}
 {% set aurora_visible = states('binary_sensor.aurora_57_12') %}
 {% set current_frost_risk = states('sensor.thermal_comfort_frost_risk') %}
@@ -227,7 +227,7 @@
   {% endif %}
 {% endif %}
 
-{% set initial_message = "Good " ~ timeofday ~ "!" %}
+{% set initial_message = "Good " ~ current_season | capitalize ~" " ~ timeofday ~ "!" %}
 {% if sweden_calendar %}
     {% set initial_message = initial_message ~ " Did you know that today is " ~ sweden_calendar_message ~ "?" %}
 {% endif %}
