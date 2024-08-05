@@ -1,33 +1,50 @@
 {% set timeofday = states('sensor.timeofday') | capitalize %}
-{% set weather_condition = states('weather.forecast_home') %}
-{% set forecast = state_attr('weather.forecast_home', 'forecast') %}
-{% set season = states('sensor.season') %}
-{% set thunder_probability = state_attr('weather.smhi_home', 'thunder_probability') %}
-{% set frost_risk = states('sensor.thermal_comfort_frost_risk') != 'no_risk' %}
-{% set uv_index = states('sensor.uv_sensor') | float %}
 {% set sweden_calendar = states('calendar.sweden') == 'on' %}
-{% set aurora_57_12 = states('binary_sensor.aurora_57_12') == 'on' %}
-{% set pollen_types = ['Alder', 'Birch', 'Grasses', 'Mugwort', 'Olive Tree', 'Ragweed'] %}
-{% set pollen_levels = {(4, 8): 'medium', (8, float('inf')): 'high'} %}
-{% set pm25 = states('sensor.sensor_47571_pm2_5') | int %}
+{% set current_weather_condition = states('weather.forecast_home') %}
+{% set current_cloud_coverage = state_attr('weather.forecast_home', 'cloud_coverage') %}
+{% set current_pressure = state_attr('weather.forecast_home', 'pressure') %}
+{% set current_dew_point = state_attr('weather.forecast_home', 'dew_point') %}
+{% set current_temperature = state_attr('weather.forecast_home', 'temperature') %}
+{% set current_humidity = state_attr('weather.forecast_home', 'humidity') %}
+{% set current_wind_bearing = state_attr('weather.forecast_home', 'wind_bearing') %}
+{% set current_wind_gust_speed = state_attr('weather.forecast_home', 'wind_gust_speed') %}
+{% set current_wind_speed = state_attr('weather.forecast_home', 'wind_speed') %}
+{% set current_precipitation = state_attr('weather.forecast_home', 'precipitation') %}
+{% set current_temperature = state_attr('weather.forecast_home', 'temperature') %}
+{% set current_season = states('sensor.seasons') %}
+{% set aurora_chance = states('sensor.aurora_57_12') %}
+{% set aurora_visible = states('binary_sensor.aurora_57_12') %}
+{% set current_frost_risk = states('sensor.thermal_comfort_frost_risk') %}
+{% set thunder_probability = state_attr('weather.smhi_home', 'thunder_probability') %}
 {% set lightning_counter = states('sensor.blitzortung_lightning_counter') %}
 {% set lightning_distance = states('sensor.blitzortung_lightning_distance') %}
 {% set lightning_azimuth = states('sensor.blitzortung_lightning_azimuth') %}
+{% set lightning_distance_unit = 'km' %}
+{% set lightning_azimuth_unit = '°' %}
+{% set current_wind_speed_unit = 'km/h' %}
+{% set current_temperature_unit = '°C' %}
+{% set current_humidity_unit = '%' %}
+{% set uv_index = states('sensor.uv_sensor') | float %}
+{% set pm25 = states('sensor.sensor_47571_pm2_5') | int %}
+
+{% set forecast = state_attr('weather.forecast_home', 'forecast') %}
 
 {% set ns = namespace(temp_sum=0, humidity_sum=0, wind_speed_sum=0, wind_bearing_sum=0, low_temp_sum=0, gust_speed_sum=0, precipitation_sum=0, condition='', precipitation_probability=0) %}
+
 {% for i in range(0, 3) %}
-    {% if forecast is defined and forecast[i] is defined %}
-        {% set ns.temp_sum = ns.temp_sum + forecast[i]['temperature']|float %}
-        {% set ns.humidity_sum = ns.humidity_sum + forecast[i]['humidity']|float %}
-        {% set ns.wind_speed_sum = ns.wind_speed_sum + forecast[i]['wind_speed']|float %}
-        {% set ns.wind_bearing_sum = ns.wind_bearing_sum + forecast[i]['wind_bearing']|float %}
-        {% set ns.low_temp_sum = ns.low_temp_sum + forecast[i]['templow']|float %}
-        {% set ns.gust_speed_sum = ns.gust_speed_sum + forecast[i]['wind_gust_speed']|float %}
-        {% set ns.precipitation_sum = ns.precipitation_sum + forecast[i]['precipitation']|float %}
-        {% set ns.condition = forecast[i]['condition'] %}
-        {% set ns.precipitation_probability = ns.precipitation_probability + forecast[i]['precipitation_probability']|float %}
-    {% endif %}
+  {% if forecast is defined and forecast[i] is defined %}
+    {% set ns.temp_sum = ns.temp_sum + forecast[i]['temperature']|float %}
+    {% set ns.humidity_sum = ns.humidity_sum + forecast[i]['humidity']|float %}
+    {% set ns.wind_speed_sum = ns.wind_speed_sum + forecast[i]['wind_speed']|float %}
+    {% set ns.wind_bearing_sum = ns.wind_bearing_sum + forecast[i]['wind_bearing']|float %}
+    {% set ns.low_temp_sum = ns.low_temp_sum + forecast[i]['templow']|float %}
+    {% set ns.gust_speed_sum = ns.gust_speed_sum + forecast[i]['wind_gust_speed']|float %}
+    {% set ns.precipitation_sum = ns.precipitation_sum + forecast[i]['precipitation']|float %}
+    {% set ns.condition = forecast[i]['condition'] %}
+    {% set ns.precipitation_probability = ns.precipitation_probability + forecast[i]['precipitation_probability']|float %}
+  {% endif %}
 {% endfor %}
+
 {% set median_temp = (ns.temp_sum / 3)|round(1) %}
 {% set median_humidity = (ns.humidity_sum / 3)|round(1) %}
 {% set median_wind_speed = (ns.wind_speed_sum / 3)|round(1) %}
@@ -35,68 +52,219 @@
 {% set median_low_temp = (ns.low_temp_sum / 3)|round(1) %}
 {% set median_gust_speed = (ns.gust_speed_sum / 3)|round(1) %}
 {% set median_precipitation = (ns.precipitation_sum / 3)|round(1) %}
-{% set condition = ns.condition %}
+{% set upcoming_condition = ns.condition %}
 {% set median_precipitation_probability = (ns.precipitation_probability / 3)|round(1) %}
-{% set frost_risk_level = states('sensor.thermal_comfort_frost_risk') | replace('_', ' ') if frost_risk else '' %}
-{% set sweden_calendar_message = states.calendar.sweden.attributes.message if sweden_calendar else '' %}
-{% set aurora_57_12_chance = states('sensor.aurora_57_12') if aurora_57_12 else '' %}
-{% set pm25_status = 'hazardous' if pm25 > 250.4 else 'very unhealthy' if pm25 > 150.4 else 'unhealthy' if pm25 > 55.4 else 'unhealthy for sensitive groups' if pm25 > 35.4 else 'moderate' if pm25 > 12 else 'good' %}
 
-Good {{timeofday}}!
-{% if sweden_calendar %}
-    Did you know that today is {{sweden_calendar_message}}?
-{% endif %}
-Today,
-{% if season == 'spring' %}
-    as spring is in the air,
-{% elif season == 'summer' %}
-    in the heart of summer,
-{% elif season == 'autumn' %}
-    with autumn leaves falling,
-{% elif season == 'winter' %}
-    in the midst of winter,
-{% endif %}
-we're expecting a {{ condition }} day with temperatures reaching up to {{ median_temp }}°C. The humidity will be around {{ median_humidity }}%. The wind speed will be around {{ median_wind_speed }} km/h.
+{% set pressure_message = '' %}
 
-{% if uv_index < 3 %}
-    The UV Index is low today.
-{% elif uv_index < 6 %}
-    The UV Index is moderate today.
-{% elif uv_index < 8 %}
-    The UV Index is high today.
-{% elif uv_index < 11 %}
-    The UV Index is very high today. Please take extra precautions if you need to be outdoors.
+{% if current_season == 'spring' %}
+  {% if current_pressure < 1010 %}
+    {% set pressure_message = 'The atmospheric pressure is quite low today, indicating that there might be a storm or bad weather.' %}
+  {% elif current_pressure < 1015 %}
+    {% set pressure_message = 'The atmospheric pressure is slightly low today, which might suggest cloudy weather or possible precipitation.' %}
+  {% elif current_pressure < 1020 %}
+    {% set pressure_message = 'The atmospheric pressure is average today, indicating normal weather conditions.' %}
+  {% elif current_pressure < 1025 %}
+    {% set pressure_message = 'The atmospheric pressure is slightly high today, which often suggests good weather.' %}
+  {% else %}
+    {% set pressure_message = 'The atmospheric pressure is very high today, indicating very dry and clear weather conditions.' %}
+  {% endif %}
+{% elif current_season == 'summer' %}
+  {% if current_pressure < 1010 %}
+    {% set pressure_message = 'The atmospheric pressure is quite low today, indicating that there might be a storm or bad weather.' %}
+  {% elif current_pressure < 1015 %}
+    {% set pressure_message = 'The atmospheric pressure is slightly low today, which might suggest cloudy weather or possible precipitation.' %}
+  {% elif current_pressure < 1020 %}
+    {% set pressure_message = 'The atmospheric pressure is average today, indicating normal weather conditions.' %}
+  {% elif current_pressure < 1025 %}
+    {% set pressure_message = 'The atmospheric pressure is slightly high today, which often suggests good weather.' %}
+  {% else %}
+    {% set pressure_message = 'The atmospheric pressure is very high today, indicating very dry and clear weather conditions.' %}
+  {% endif %}
+{% elif current_season == 'autumn' %}
+  {% if current_pressure < 1010 %}
+    {% set pressure_message = 'The atmospheric pressure is quite low today, indicating that there might be a storm or bad weather.' %}
+  {% elif current_pressure < 1015 %}
+    {% set pressure_message = 'The atmospheric pressure is slightly low today, which might suggest cloudy weather or possible precipitation.' %}
+  {% elif current_pressure < 1020 %}
+    {% set pressure_message = 'The atmospheric pressure is average today, indicating normal weather conditions.' %}
+  {% elif current_pressure < 1025 %}
+    {% set pressure_message = 'The atmospheric pressure is slightly high today, which often suggests good weather.' %}
+  {% else %}
+    {% set pressure_message = 'The atmospheric pressure is very high today, indicating very dry and clear weather conditions.' %}
+  {% endif %}
 {% else %}
-    The UV Index is extreme today. Please take extra precautions if you need to be outdoors.
+  {% if current_pressure < 1010 %}
+    {% set pressure_message = 'The atmospheric pressure is quite low today, indicating that there might be a storm or bad weather.' %}
+  {% elif current_pressure < 1015 %}
+    {% set pressure_message = 'The atmospheric pressure is slightly low today, which might suggest cloudy weather or possible precipitation.' %}
+  {% elif current_pressure < 1020 %}
+    {% set pressure_message = 'The atmospheric pressure is average today, indicating normal weather conditions.' %}
+  {% elif current_pressure < 1025 %}
+    {% set pressure_message = 'The atmospheric pressure is slightly high today, which often suggests good weather.' %}
+  {% else %}
+    {% set pressure_message = 'The atmospheric pressure is very high today, indicating very dry and clear weather conditions.' %}
+  {% endif %}
 {% endif %}
 
-{% if thunder_probability is not none and thunder_probability | int > 33 %}
-    Also, there's a thunder probability of {{ thunder_probability }}%.
+{% set frost_risk_message = '' %}
+{% if current_frost_risk != 'no_risk' %}
+  {% set frost_risk = current_frost_risk.replace('_', ' ') %}
+  {% set frost_risk_message = 'Frost risk is ' ~ frost_risk ~ ' outside.' %}
 {% endif %}
 
-{% if lightning_counter is not none and lightning_counter | int > 1 %}
-    In fact, there have been {{ lightning_counter }} lightning strikes detected. The most recent one was detected at a distance of {{ lightning_distance }} and an in the direction of {{ lightning_azimuth }} degrees.
+{% set wind_speed_message = '' %}
+{% if current_wind_speed is not none %}
+  {% if current_wind_speed < 5 %}
+    {% set wind_speed_message = 'The wind is light today, with a speed of ' ~ current_wind_speed ~ ' ' ~ current_wind_speed_unit ~ '.' %}
+  {% elif current_wind_speed < 15 %}
+    {% set wind_speed_message = 'The wind is moderate today, with a speed of ' ~ current_wind_speed ~ ' ' ~ current_wind_speed_unit ~ '.' %}
+  {% elif current_wind_speed < 30 %}
+    {% set wind_speed_message = 'The wind is strong today, with a speed of ' ~ current_wind_speed ~ ' ' ~ current_wind_speed_unit ~ '. Be careful if you\'re planning any outdoor activities.' %}
+  {% else %}
+    {% set wind_speed_message = 'The wind is very strong today, with a speed of ' ~ current_wind_speed ~ ' ' ~ current_wind_speed_unit ~ '. It might not be safe to be outdoors.' %}
+  {% endif %}
 {% endif %}
 
-{% if frost_risk %}
-    And watch out for the frost, there's a {{frost_risk_level}} risk.
+{% set cloud_coverage_message = '' %}
+{% if current_cloud_coverage is not none %}
+  {% if current_cloud_coverage < 20 %}
+    {% set cloud_coverage_message = 'The sky is mostly clear today, with just a few wispy clouds dotting the horizon.' %}
+  {% elif current_cloud_coverage < 50 %}
+    {% set cloud_coverage_message = 'It is partly cloudy today, with a mix of sun and clouds creating a beautiful, dynamic sky.' %}
+  {% else %}
+    {% set cloud_coverage_message = 'It is quite cloudy today, with a thick blanket of clouds covering most of the sky.' %}
+  {% endif %}
 {% endif %}
 
-{% for pollen in pollen_types %}
-    {% set level = state_attr('sensor.pollen_data', pollen)|float %}
-    {% for range, descriptor in pollen_levels.items() %}
-        {% if level >= range[0] and level < range[1] %}
-            For those with allergies, please note that the {{pollen | lower}} pollen levels are {{descriptor}} today.
-        {% endif %}
-    {% endfor %}
-{% endfor %}
-
-{% if aurora_57_12 %}
-    And the cherry on top? There's a {{aurora_57_12_chance}}% chance of seeing the stunning aurora tonight.
+{% set precipitation_message = '' %}
+{% if current_precipitation is not none %}
+  {% if current_precipitation < 1 %}
+    {% set precipitation_message = 'There is little to no precipitation expected today.' %}
+  {% elif current_precipitation < 10 %}
+    {% set precipitation_message = 'There is a chance of light rain today.' %}
+  {% else %}
+    {% set precipitation_message = 'Rain is expected today. Don\'t forget your umbrella!' %}
+  {% endif %}
 {% endif %}
 
-{% if pm25_status %}
-    And the air quality is {{pm25_status}} outside.
+{% set aurora_message = '' %}
+{% if aurora_visible == 'on' %}
+  {% set aurora_message = 'The aurora is currently visible! ' %}
+{% elif aurora_chance is not none and aurora_chance != '0' %}
+  {% set aurora_message = 'There is a ' ~ aurora_chance ~ '% chance of seeing the aurora tonight. ' %}
 {% endif %}
 
-Have a great day!
+{% set lightning_message = '' %}
+{% if lightning_counter|int > 0 or thunder_probability|int > 20 %}
+  {% if lightning_counter|int > 0 and lightning_distance != 'unknown' and lightning_azimuth != 'unknown' %}
+    {% set lightning_message = 'There have been ' ~ lightning_counter ~ ' lightning strikes detected within ' ~ lightning_distance ~ ' ' ~ lightning_distance_unit ~ ' of your location. The most recent strike was at ' ~ lightning_azimuth ~ lightning_azimuth_unit ~ '.' %}
+  {% elif lightning_counter|int > 0 %}
+    {% set lightning_message = 'There have been ' ~ lightning_counter ~ ' lightning strikes detected in your area.' %}
+  {% endif %}
+  
+  {% if thunder_probability != 'unknown' %}
+    {% if thunder_probability|int > 50 %}
+      {% set lightning_message = lightning_message ~ ' There is a high probability of thunder, so stay indoors and stay safe!' %}
+    {% elif thunder_probability|int > 20 %}
+      {% set lightning_message = lightning_message ~ ' There is a moderate chance of thunder, so be cautious if you are outside.' %}
+    {% endif %}
+  {% endif %}
+  
+  {% if weather_condition in ['lightning', 'thunderstorm'] %}
+    {% set lightning_message = lightning_message ~ ' Current weather conditions indicate ' ~ weather_condition ~ '.' %}
+  {% endif %}
+{% endif %}
+
+{% set uv_index_message = '' %}
+{% if uv_index is not none %}
+  {% if uv_index < 3 %}
+    {% set uv_index_message = 'The UV index is low today, so no need for extra sun protection.' %}
+  {% elif uv_index < 6 %}
+    {% set uv_index_message = 'The UV index is moderate today. Consider wearing sunglasses and sunscreen if you\'re outside.' %}
+  {% elif uv_index < 8 %}
+    {% set uv_index_message = 'The UV index is high today. It\'s a good idea to wear sunglasses, sunscreen, and protective clothing.' %}
+  {% elif uv_index < 11 %}
+    {% set uv_index_message = 'The UV index is very high today. Be sure to wear sunglasses, sunscreen, and protective clothing, and seek shade during midday hours.' %}
+  {% else %}
+    {% set uv_index_message = 'The UV index is extremely high today. Take all precautions: wear sunglasses, sunscreen, protective clothing, and avoid being outside during midday hours.' %}
+  {% endif %}
+{% endif %}
+
+{% set pm25_message = '' %}
+{% if pm25 is not none %}
+  {% if pm25 < 12 %}
+    {% set pm25_message = 'The air quality is good today, with low levels of PM2.5.' %}
+  {% elif pm25 < 35 %}
+    {% set pm25_message = 'The air quality is moderate today. Sensitive individuals should consider reducing prolonged or heavy exertion outdoors.' %}
+  {% elif pm25 < 55 %}
+    {% set pm25_message = 'The air quality is unhealthy for sensitive groups today. Sensitive individuals should reduce prolonged or heavy exertion outdoors.' %}
+  {% elif pm25 < 150 %}
+    {% set pm25_message = 'The air quality is unhealthy today. Everyone should reduce prolonged or heavy exertion outdoors.' %}
+  {% elif pm25 < 250 %}
+    {% set pm25_message = 'The air quality is very unhealthy today. Everyone should avoid prolonged or heavy exertion outdoors.' %}
+  {% else %}
+    {% set pm25_message = 'The air quality is hazardous today. Everyone should avoid all outdoor exertion.' %}
+  {% endif %}
+{% endif %}
+
+{% set initial_message = "Good " ~ timeofday ~ "!" %}
+{% if sweden_calendar %}
+    {% set initial_message = initial_message ~ " Did you know that today is " ~ sweden_calendar_message ~ "?" %}
+{% endif %}
+
+{% set final_message = initial_message ~ " " %}
+
+{% if current_weather_condition %}
+  {% set final_message = final_message ~ 'The current weather is ' ~ current_weather_condition ~ '. ' %}
+{% endif %}
+
+{% if upcoming_condition and current_weather_condition != upcoming_condition %}
+  {% set final_message = final_message ~ 'Expect ' ~ upcoming_condition ~ ' weather soon. ' %}
+{% endif %}
+
+{% if median_temp %}
+  {% set final_message = final_message ~ 'The median temperature is ' ~ median_temp ~ current_temperature_unit ~ ', with a low of ' ~ median_low_temp ~ current_temperature_unit ~ '. ' %}
+{% endif %}
+
+{% if median_humidity %}
+  {% set final_message = final_message ~ 'Humidity levels are around ' ~ median_humidity ~ current_humidity_unit ~ '. ' %}
+{% endif %}
+
+{% if pressure_message %}
+  {% set final_message = final_message ~ pressure_message ~ ' ' %}
+{% endif %}
+
+{% if wind_speed_message %}
+  {% set final_message = final_message ~ wind_speed_message %}
+{% endif %}
+
+{% if cloud_coverage_message %}
+  {% set final_message = final_message ~ cloud_coverage_message ~ ' ' %}
+{% endif %}
+
+{% if precipitation_message %}
+  {% set final_message = final_message ~ precipitation_message ~ ' ' %}
+{% endif %}
+
+{% if lightning_message %}
+  {% set final_message = final_message ~ lightning_message %}
+{% endif %}
+
+{% if aurora_message %}
+  {% set final_message = final_message ~ aurora_message %}
+{% endif %}
+
+{% if frost_risk_message %}
+  {% set final_message = final_message ~ frost_risk_message %}
+{% endif %}
+
+{% if uv_index_message %}
+  {% set final_message = final_message ~ uv_index_message %}
+{% endif %}
+
+{% if pm25_message %}
+  {% set final_message = final_message ~ pm25_message %}
+{% endif %}
+
+{{ final_message }}
