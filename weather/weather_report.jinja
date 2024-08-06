@@ -1,6 +1,5 @@
 {% set timeofday = states('sensor.timeofday') | capitalize %}
 {% set sweden_calendar = states('calendar.sweden') == 'on' %}
-{% set current_weather_condition = states('weather.forecast_home') %}
 {% set current_cloud_coverage = state_attr('weather.forecast_home', 'cloud_coverage') %}
 {% set current_pressure = state_attr('weather.forecast_home', 'pressure') %}
 {% set current_dew_point = state_attr('weather.forecast_home', 'dew_point') %}
@@ -33,6 +32,8 @@
 {% set olive_tree_pollen = state_attr('sensor.pollen_data', 'Olive Tree') %}
 {% set ragweed_pollen = state_attr('sensor.pollen_data', 'Ragweed') %}
 {% set current_weather_condition = states('weather.forecast_home') %}
+{% set absolute_humidity = states('sensor.thermal_comfort_absolute_humidity') %}
+{% set moist_air_enthalpy = states('sensor.thermal_comfort_moist_air_enthalpy') %}
 
 {% set forecast = state_attr('weather.forecast_home', 'forecast') %}
 
@@ -69,6 +70,28 @@
   'windy-variant': 'gusty',
   'partlycloudy': 'partly cloudy'
 } %}
+
+{% set absolute_humidity_interpretation = '' %}
+{% if absolute_humidity %}
+  {% if absolute_humidity|float < 10 %}
+    {% set absolute_humidity_interpretation = 'quite dry, indicating comfortable indoor conditions' %}
+  {% elif absolute_humidity|float < 30 %}
+    {% set absolute_humidity_interpretation = 'somewhat humid, which might feel a bit uncomfortable' %}
+  {% else %}
+    {% set absolute_humidity_interpretation = 'very humid, which might feel quite uncomfortable' %}
+  {% endif %}
+{% endif %}
+
+{% set moist_air_enthalpy_interpretation = '' %}
+{% if moist_air_enthalpy %}
+  {% if moist_air_enthalpy|float < 30 %}
+    {% set moist_air_enthalpy_interpretation = 'The air feels comfortable, holding moderate heat.' %}
+  {% elif moist_air_enthalpy|float < 50 %}
+    {% set moist_air_enthalpy_interpretation = 'The air feels warm, holding a lot of heat' %}
+  {% else %}
+    {% set moist_air_enthalpy_interpretation = 'The air feels hot and humid, holding high heat' %}
+  {% endif %}
+{% endif %}
 
 {% set pressure_message = '' %}
 
@@ -235,7 +258,7 @@
   {% endif %}
 {% endif %}
 
-{% set initial_message = "Good " ~ timeofday ~ "! Typical " ~ current_season ~ " weather today." %}
+{% set initial_message = "Good " ~ current_season | capitalize ~" " ~ timeofday ~ "!" %}
 {% if sweden_calendar %}
     {% set initial_message = initial_message ~ " Did you know that today is " ~ sweden_calendar_message ~ "?" %}
 {% endif %}
@@ -255,7 +278,13 @@
 {% endif %}
 
 {% if median_humidity %}
-  {% set final_message = final_message ~ 'Humidity levels are around ' ~ median_humidity ~ current_humidity_unit ~ '. ' %}
+  {% set final_message = final_message ~ 'The average humidity is around ' ~ median_humidity ~ current_humidity_unit ~ '. ' %}
+  {% if absolute_humidity_interpretation %}
+    {% set final_message = final_message ~ 'This translates to the air being ' ~ absolute_humidity_interpretation ~ '. ' %}
+  {% endif %}
+  {% if moist_air_enthalpy_interpretation %}
+    {% set final_message = final_message ~ 'In terms of energy, the air ' ~ moist_air_enthalpy_interpretation ~ '. ' %}
+  {% endif %}
 {% endif %}
 
 {% if pressure_message %}
