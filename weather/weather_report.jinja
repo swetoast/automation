@@ -34,6 +34,7 @@
 {% set current_weather_condition = states('weather.forecast_home') %}
 {% set absolute_humidity = states('sensor.thermal_comfort_absolute_humidity') %}
 {% set moist_air_enthalpy = states('sensor.thermal_comfort_moist_air_enthalpy') %}
+{% set dew_point = states('sensor.thermal_comfort_dew_point') %}
 
 {% set forecast = state_attr('weather.forecast_home', 'forecast') %}
 
@@ -240,6 +241,7 @@
     {% set uv_index_message = 'The UV index is extremely high today. Take all precautions wear sunglasses, sunscreen, protective clothing, and avoid being outside during midday hours.' %}
   {% endif %}
 {% endif %}
+
 
 {% set pm25_message = '' %}
 {% if pm25 is not none %}
