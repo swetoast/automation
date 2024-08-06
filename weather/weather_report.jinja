@@ -98,51 +98,51 @@
 
 {% if current_season == 'spring' %}
   {% if current_pressure < 1010 %}
-    {% set pressure_message = 'The atmospheric pressure is quite low today, indicating that there might be a storm or bad weather.' %}
+    {% set pressure_message = 'Looks like a storm might be brewing today.' %}
   {% elif current_pressure < 1015 %}
-    {% set pressure_message = 'The atmospheric pressure is slightly low today, which might suggest cloudy weather or possible precipitation.' %}
+    {% set pressure_message = 'Might get a bit cloudy or rainy today.' %}
   {% elif current_pressure < 1020 %}
-    {% set pressure_message = 'The atmospheric pressure is average today, indicating normal weather conditions.' %}
+    {% set pressure_message = 'Just an average weather day.' %}
   {% elif current_pressure < 1025 %}
-    {% set pressure_message = 'The atmospheric pressure is slightly high today, which often suggests good weather.' %}
+    {% set pressure_message = 'Good weather on the horizon.' %}
   {% else %}
-    {% set pressure_message = 'The atmospheric pressure is very high today, indicating very dry and clear weather conditions.' %}
+    {% set pressure_message = 'Expect a clear and sunny day.' %}
   {% endif %}
 {% elif current_season == 'summer' %}
   {% if current_pressure < 1010 %}
-    {% set pressure_message = 'The atmospheric pressure is quite low today, indicating that there might be a storm or bad weather.' %}
+    {% set pressure_message = 'Stormy weather could be on its way.' %}
   {% elif current_pressure < 1015 %}
-    {% set pressure_message = 'The atmospheric pressure is slightly low today, which might suggest cloudy weather or possible precipitation.' %}
+    {% set pressure_message = 'Clouds might roll in, maybe some rain.' %}
   {% elif current_pressure < 1020 %}
-    {% set pressure_message = 'The atmospheric pressure is average today, indicating normal weather conditions.' %}
+    {% set pressure_message = 'Weather seems pretty average today.' %}
   {% elif current_pressure < 1025 %}
-    {% set pressure_message = 'The atmospheric pressure is slightly high today, which often suggests good weather.' %}
+    {% set pressure_message = 'Looks like a nice day ahead.' %}
   {% else %}
-    {% set pressure_message = 'The atmospheric pressure is very high today, indicating very dry and clear weather conditions.' %}
+    {% set pressure_message = 'Clear skies all day.' %}
   {% endif %}
 {% elif current_season == 'autumn' %}
   {% if current_pressure < 1010 %}
-    {% set pressure_message = 'The atmospheric pressure is quite low today, indicating that there might be a storm or bad weather.' %}
+    {% set pressure_message = 'A storm might be coming.' %}
   {% elif current_pressure < 1015 %}
-    {% set pressure_message = 'The atmospheric pressure is slightly low today, which might suggest cloudy weather or possible precipitation.' %}
+    {% set pressure_message = 'Could be cloudy, maybe some rain.' %}
   {% elif current_pressure < 1020 %}
-    {% set pressure_message = 'The atmospheric pressure is average today, indicating normal weather conditions.' %}
+    {% set pressure_message = 'Just your average weather day.' %}
   {% elif current_pressure < 1025 %}
-    {% set pressure_message = 'The atmospheric pressure is slightly high today, which often suggests good weather.' %}
+    {% set pressure_message = 'Good weather seems likely.' %}
   {% else %}
-    {% set pressure_message = 'The atmospheric pressure is very high today, indicating very dry and clear weather conditions.' %}
+    {% set pressure_message = 'Expect a dry and clear day.' %}
   {% endif %}
-{% else %}
+{% else %}  {# This is for winter #}
   {% if current_pressure < 1010 %}
-    {% set pressure_message = 'The atmospheric pressure is quite low today, indicating that there might be a storm or bad weather.' %}
+    {% set pressure_message = 'Stormy weather possible.' %}
   {% elif current_pressure < 1015 %}
-    {% set pressure_message = 'The atmospheric pressure is slightly low today, which might suggest cloudy weather or possible precipitation.' %}
+    {% set pressure_message = 'Might be a bit cloudy or snowy.' %}
   {% elif current_pressure < 1020 %}
-    {% set pressure_message = 'The atmospheric pressure is average today, indicating normal weather conditions.' %}
+    {% set pressure_message = 'Average weather conditions today.' %}
   {% elif current_pressure < 1025 %}
-    {% set pressure_message = 'The atmospheric pressure is slightly high today, which often suggests good weather.' %}
+    {% set pressure_message = 'Good weather likely.' %}
   {% else %}
-    {% set pressure_message = 'The atmospheric pressure is very high today, indicating very dry and clear weather conditions.' %}
+    {% set pressure_message = 'Clear and sunny day ahead.' %}
   {% endif %}
 {% endif %}
 
@@ -230,33 +230,32 @@
 {% set uv_index_message = '' %}
 {% if uv_index is not none %}
   {% if uv_index < 3 %}
-    {% set uv_index_message = 'The UV index is low today, so no need for extra sun protection.' %}
+    {% set uv_index_message = 'No extra sun protection needed.' %}
   {% elif uv_index < 6 %}
-    {% set uv_index_message = 'The UV index is moderate today. Consider wearing sunglasses and sunscreen if youre outside.' %}
+    {% set uv_index_message = 'Consider sunglasses and sunscreen.' %}
   {% elif uv_index < 8 %}
-    {% set uv_index_message = 'The UV index is high today. Its a good idea to wear sunglasses, sunscreen, and protective clothing.' %}
+    {% set uv_index_message = 'Wear sunglasses, sunscreen, and protective clothing.' %}
   {% elif uv_index < 11 %}
-    {% set uv_index_message = 'The UV index is very high today. Be sure to wear sunglasses, sunscreen, and protective clothing, and seek shade during midday hours.' %}
+    {% set uv_index_message = 'Wear sun protection and seek shade during midday.' %}
   {% else %}
-    {% set uv_index_message = 'The UV index is extremely high today. Take all precautions wear sunglasses, sunscreen, protective clothing, and avoid being outside during midday hours.' %}
+    {% set uv_index_message = 'Take all precautions and avoid midday sun.' %}
   {% endif %}
 {% endif %}
-
 
 {% set pm25_message = '' %}
 {% if pm25 is not none %}
   {% if pm25 < 12 %}
-    {% set pm25_message = 'The air quality is good today, with low levels of particles in the air.' %}
+    {% set pm25_message = ' Good air quality today.' %}
   {% elif pm25 < 35 %}
-    {% set pm25_message = 'The air quality is moderate today. Sensitive individuals should consider reducing prolonged or heavy exertion outdoors.' %}
+    {% set pm25_message = ' Moderate air quality. Sensitive individuals should limit outdoor exertion.' %}
   {% elif pm25 < 55 %}
-    {% set pm25_message = 'The air quality is unhealthy for sensitive groups today. Sensitive individuals should reduce prolonged or heavy exertion outdoors.' %}
+    {% set pm25_message = ' Unhealthy air for sensitive groups. Limit outdoor exertion.' %}
   {% elif pm25 < 150 %}
-    {% set pm25_message = 'The air quality is unhealthy today. Everyone should reduce prolonged or heavy exertion outdoors.' %}
+    {% set pm25_message = ' Unhealthy air quality. Limit outdoor activities.' %}
   {% elif pm25 < 250 %}
-    {% set pm25_message = 'The air quality is very unhealthy today. Everyone should avoid prolonged or heavy exertion outdoors.' %}
+    {% set pm25_message = ' Very unhealthy air. Avoid outdoor activities.' %}
   {% else %}
-    {% set pm25_message = 'The air quality is hazardous today. Everyone should avoid all outdoor exertion.' %}
+    {% set pm25_message = ' Hazardous air quality. Avoid outdoor exertion.' %}
   {% endif %}
 {% endif %}
 
