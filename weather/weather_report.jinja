@@ -188,7 +188,6 @@
   {% endif %}
 {% endif %}
 
-
 {% set precipitation_message = '' %}
 {% if current_precipitation is not none %}
   {% if current_precipitation < 1 %}
@@ -275,12 +274,8 @@
   {% set final_message = final_message ~ 'Expect ' ~ (weather_state_mapping[upcoming_condition] if upcoming_condition in weather_state_mapping else upcoming_condition) ~ ' weather soon. ' %}
 {% endif %}
 
-{% if median_temp %}
-  {% set final_message = final_message ~ 'The median temperature is ' ~ median_temp ~ current_temperature_unit ~ ', with a low of ' ~ median_low_temp ~ current_temperature_unit ~ '. ' %}
-{% endif %}
-
 {% if median_humidity %}
-  {% set final_message = 'Average humidity is ' ~ median_humidity ~ current_humidity_unit ~ '. ' %}
+  {% set final_message = final_message ~ 'The average humidity is around ' ~ median_humidity ~ current_humidity_unit ~ '. ' %}
   {% if absolute_humidity_interpretation %}
     {% set final_message = final_message ~ 'The air is ' ~ absolute_humidity_interpretation ~ '. ' %}
   {% endif %}
