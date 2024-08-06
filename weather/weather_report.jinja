@@ -180,13 +180,14 @@
 {% set cloud_coverage_message = '' %}
 {% if current_cloud_coverage is not none %}
   {% if current_cloud_coverage < 20 %}
-    {% set cloud_coverage_message = 'The sky is mostly clear today, with just a few wispy clouds dotting the horizon.' %}
+    {% set cloud_coverage_message = 'The sky is mostly clear today, just a few clouds.' %}
   {% elif current_cloud_coverage < 50 %}
-    {% set cloud_coverage_message = 'It is partly cloudy today, with a mix of sun and clouds creating a beautiful, dynamic sky.' %}
+    {% set cloud_coverage_message = 'Its a mix of sun and clouds today.' %}
   {% else %}
-    {% set cloud_coverage_message = 'It is quite cloudy today, with a thick blanket of clouds covering most of the sky.' %}
+    {% set cloud_coverage_message = 'Looks like a cloudy day today.' %}
   {% endif %}
 {% endif %}
+
 
 {% set precipitation_message = '' %}
 {% if current_precipitation is not none %}
@@ -279,9 +280,9 @@
 {% endif %}
 
 {% if median_humidity %}
-  {% set final_message = final_message ~ 'The average humidity is around ' ~ median_humidity ~ current_humidity_unit ~ '. ' %}
+  {% set final_message = 'Average humidity is ' ~ median_humidity ~ current_humidity_unit ~ '. ' %}
   {% if absolute_humidity_interpretation %}
-    {% set final_message = final_message ~ 'This translates to the air being ' ~ absolute_humidity_interpretation ~ '. ' %}
+    {% set final_message = final_message ~ 'The air is ' ~ absolute_humidity_interpretation ~ '. ' %}
   {% endif %}
   {% if moist_air_enthalpy_interpretation %}
     {% set final_message = final_message ~ 'In terms of energy, the air ' ~ moist_air_enthalpy_interpretation ~ '. ' %}
