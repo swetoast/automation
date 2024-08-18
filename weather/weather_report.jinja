@@ -74,11 +74,11 @@
     {% set moist_air_enthalpy_interpretation = '' %} 
     {% if moist_air_enthalpy %} 
       {% if moist_air_enthalpy|float < 30 %} 
-        {% set moist_air_enthalpy_interpretation = 'The air feels comfortable, holding moderate heat.' %} 
+        {% set moist_air_enthalpy_interpretation = 'feels comfortable, holding moderate heat.' %} 
       {% elif moist_air_enthalpy|float < 50 %} 
-        {% set moist_air_enthalpy_interpretation = 'The air feels warm, holding a lot of heat' %} 
+        {% set moist_air_enthalpy_interpretation = 'feels warm, holding a lot of heat' %} 
       {% else %} 
-        {% set moist_air_enthalpy_interpretation = 'The air feels hot and humid, holding high heat' %} 
+        {% set moist_air_enthalpy_interpretation = 'feels hot and humid, holding high heat' %} 
       {% endif %} 
     {% endif %} 
     {% set pressure_message = '' %} 
