@@ -1,102 +1,14 @@
-service: climate.set_temperature
-target:
-  entity_id: climate.air_conditioner
-data_template:
-  temperature: >
-    {# User Preferences #}
-    {% set daytime_additional_cooling = true %}
-    {% set ac_temp_min = 16 %}
-    {% set ac_temp_max = 31 %}
-    {% set sleeping_temp_min_user = 18 %}
-    {% set sleeping_temp_max_user = 25 %}
-    
-    {# Sensor Readings #}
-    {% set indoor_temp = states('sensor.indoor_average_temperure')|float %}
-    {% set outdoor_temp = states('sensor.average_outdoor_temperature')|float %}
-    {% set indoor_humidity = states('sensor.indoor_average_humidity')|float %}
-    {% set outdoor_humidity = states('sensor.average_outside_humidity')|float %}
-    {% set current_humidity = state_attr('weather.forecast_home', 'humidity')|float %}
-    {% set current_dew_point = state_attr('weather.forecast_home', 'dew_point')|float %}
-    {% set current_cloud_coverage = state_attr('weather.forecast_home', 'cloud_coverage')|float %}
-    {% set current_pressure = state_attr('weather.forecast_home', 'pressure')|float %}
-    {% set sun_state = states('sun.sun') %}
-    {% set forecast = state_attr('weather.forecast_home', 'forecast') %}
-    {% set current_season = states('sensor.season') %}
-    
-    {# Variables for Temperature Adjustment Logic #}
-    {% set sleeping_temp_min = sleeping_temp_min_user if sleeping_temp_min_user >= ac_temp_min else ac_temp_min %}
-    {% set sleeping_temp_max = sleeping_temp_max_user if sleeping_temp_max_user <= ac_temp_max else ac_temp_max %}
-    {% set ns = namespace(min_temp=1000, max_humidity=0, max_wind_speed=0, max_precipitation=0) %}
-    {% set humidity_diff = outdoor_humidity - indoor_humidity %}
-    {% set temp_diff = outdoor_temp - indoor_temp %}
-
-    {% for i in range(0, 3) %}
-      {% set curr_temp = forecast[i]['temperature']|float %}
-      {% set curr_humidity = forecast[i]['humidity']|float %}
-      {% set curr_wind_speed = forecast[i]['wind_speed']|float %}
-      {% set curr_precipitation = forecast[i]['precipitation']|float %}
-      {% if curr_temp < ns.min_temp %}
-        {% set ns.min_temp = curr_temp %}
-      {% endif %}
-      {% if curr_humidity > ns.max_humidity %}
-        {% set ns.max_humidity = curr_humidity %}
-      {% endif %}
-      {% if curr_wind_speed > ns.max_wind_speed %}
-        {% set ns.max_wind_speed = curr_wind_speed %}
-      {% endif %}
-      {% if curr_precipitation > ns.max_precipitation %}
-        {% set ns.max_precipitation = curr_precipitation %}
-      {% endif %}
-    {% endfor %}
-
-    {% if sun_state == 'above_horizon' %}
-      {% set target_temp = indoor_temp | round(0, 'floor') %}
-      {% if daytime_additional_cooling %}
-        {% set target_temp = target_temp - 1 %}
-      {% endif %}
-    {% elif sun_state == 'below_horizon' %}
-      {% set target_temp = indoor_temp - 1 - temp_diff/10 %}
-      {% if ns.max_humidity > 50 %}
-        {% set target_temp = target_temp - 1 - humidity_diff/10 %}
-      {% elif ns.max_humidity < 30 %}
-        {% set target_temp = target_temp + 1 + humidity_diff/10 %}
-      {% endif %}
-      {% if current_dew_point > 18 %}
-        {% set target_temp = target_temp - 1 %}
-      {% endif %}
-      {% if current_cloud_coverage < 30 %}
-        {% set target_temp = target_temp + 1 %}
-      {% endif %}
-      {% if ns.max_wind_speed > 15 %}
-        {% set target_temp = target_temp + 1 %}
-      {% endif %}
-      {% if ns.max_precipitation > 0 %}
-        {% set target_temp = target_temp - 1 %}
-      {% endif %}
-      {% if indoor_humidity > 60 %}
-        {% set target_temp = target_temp - 1 %}
-      {% elif indoor_humidity < 30 %}
-        {% set target_temp = target_temp + 1 %}
-      {% endif %}
-      {% if current_pressure > 1020 %}
-        {% set target_temp = target_temp + 1 %}
-      {% elif current_pressure < 1000 %}
-        {% set target_temp = target_temp - 1 %}
-      {% endif %}
-      {% if current_season == 'summer' %}
-        {% set target_temp = target_temp - 1 %}
-      {% elif current_season == 'winter' %}
-        {% set target_temp = target_temp + 1 %}
-      {% elif current_season == 'spring' %}
-        {% set target_temp = target_temp - 0.5 %}
-      {% elif current_season == 'autumn' %}
-        {% set target_temp = target_temp + 0.5 %}
-      {% endif %}
-      {% if target_temp < sleeping_temp_min %}
-        {% set target_temp = sleeping_temp_min %}
-      {% elif target_temp > sleeping_temp_max %}
-        {% set target_temp = sleeping_temp_max %}
-      {% endif %}
-    {% endif %}
-
-    {{ target_temp|round|int }}
+alias: "Climate: Optimal Temperature Regulator"
+description: >
+  This automation ensures your home is always at the optimal temperature by
+  intelligently adjusting the air conditioning system based on readings from
+  temperature and weather forecasts.
+trigger:
+  - platform: time_pattern
+    minutes: /5
+action:
+  - service: climate.set_temperature
+    target:
+      entity_id: climate.air_conditioner
+    data_template:
+      temperature: "{{ states('sensor.air_conditioner_target_difference') | round}}"
