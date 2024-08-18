@@ -1,0 +1,31 @@
+{% set daytime_additional_cooling = true %}
+
+{% set forecast = state_attr('weather.forecast_home', 'forecast') %}
+{% set current_outdoor_temp = states('sensor.average_outdoor_temperature')|float %}
+{% set indoor_temp = states('sensor.average_temp_linked_rooms')|float %}
+{% set sun_state = states('sun.sun') %}
+
+
+{% set ns = namespace(temp_sum=0) %}
+{% for i in range(0, 2) %}
+  {% if forecast is defined and forecast[i] is defined %}
+    {% set ns.temp_sum = ns.temp_sum + forecast[i]['temperature']|float %}
+  {% endif %}
+{% endfor %}
+{% set average_forecast_temp = (ns.temp_sum / 2)|round(1) %}
+{% set cooling_offset = (indoor_temp - average_forecast_temp)|round(1) %}
+{% set cooling_offset_divided = (cooling_offset / 2)|round(1) %}
+{% set adjusted_temp = (current_outdoor_temp - cooling_offset_divided)|round(1) %}
+
+{% if sun_state == 'above_horizon' %}
+  {% set target_temp = indoor_temp | round(0, 'floor') %}
+  {% if daytime_additional_cooling %}
+    {% set target_temp = target_temp - 1 %}
+  {% endif %}
+{% elif sun_state == 'below_horizon' %}
+  {% set target_temp = indoor_temp - cooling_offset_divided %}
+{% endif %}
+
+{% set target_temp = [16, [target_temp, 32] | min] | max %}
+
+{{ target_temp }}
