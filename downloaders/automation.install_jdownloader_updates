@@ -1,0 +1,24 @@
+alias: "Auto-Update: Install JDownloader Updates"
+description: Automatically install JDownloader updates
+trigger:
+  - platform: state
+    entity_id:
+      - update.jdownloader_updates
+    to: "on"
+condition:
+  - condition: template
+    value_template: "{{ states('sensor.jdownloader_current_status') in ['idle', 'stopped'] }}"
+action:
+  - target:
+      entity_id: update.jdownloader_updates
+    action: update.install
+    data: {}
+  - delay:
+      hours: 0
+      minutes: 1
+      seconds: 0
+      milliseconds: 0
+  - data:
+      entry_id: "!secret jdownloader_entry_id"
+    action: homeassistant.reload_config_entry
+mode: restart
