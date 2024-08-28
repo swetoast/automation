@@ -1,0 +1,33 @@
+alias: "Lights: Turn on bathroom lights on motion"
+description: >-
+  When you walk into the bathroom, this automation will turn on the ceiling
+  lights with a warm, inviting color. The lights will stay on for 5 minutes,
+  giving you plenty of time to do what you need, and then they'll turn off
+  automatically.
+trigger:
+  - platform: state
+    entity_id:
+      - binary_sensor.bathroom_motion_sensor
+    to: "on"
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 2
+    from: null
+action:
+  - target:
+      entity_id: light.bathroom_celing_lighs
+    action: light.turn_on
+    data:
+      rgb_color:
+        - 252
+        - 202
+        - 126
+      brightness_pct: 100
+  - delay: "00:05:00"
+  - target:
+      entity_id: light.bathroom_celing_lighs
+    action: light.turn_off
+    data: {}
+mode: queued
+max: 10
