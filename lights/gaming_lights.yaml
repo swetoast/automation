@@ -1,0 +1,44 @@
+alias: "Lights: Gaming Lighs"
+description: >-
+  This automation controls the living room desktop lights based on gaming
+  activity and light conditions. When the gaming sensor turns on and the person
+  is home, it waits for the gaming sensor to turn off before turning off the
+  lights. If it’s dark outside, the light level is low, and presence is
+  detected, the lights turn on. The lights will turn off if the light level
+  increases and the gaming sensor is on.
+trigger:
+  - platform: state
+    entity_id:
+      - binary_sensor.gaming_sensor
+    to: "on"
+condition:
+  - condition: state
+    entity_id: person.toast
+    state: home
+action:
+  - if:
+      - condition: state
+        entity_id: sun.sun
+        state: below_horizon
+      - condition: numeric_state
+        entity_id: sensor.lux_sensor
+        below: 10
+      - condition: state
+        entity_id: binary_sensor.presence_sensor
+        state: "on"
+    then:
+      - entity_id: light.livingroom_desktop_lighs
+        action: light.turn_on
+      - wait_for_trigger:
+          - platform: template
+            value_template: >-
+              {{ (states('sensor.lux_sensor') | float > 10) and
+              (states('binary_sensor.gaming_sensor') == 'on') }}
+        continue_on_timeout: false
+      - action: light.turn_off
+        metadata: {}
+        data: {}
+        target:
+          entity_id: light.livingroom_desktop_lighs
+    else:
+      - stop: ""
