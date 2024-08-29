@@ -1,0 +1,73 @@
+alias: "Lights: Entryway Lights"
+description: >-
+  This automation turns on the entryway ceiling and wall lights when motion is
+  detected, but only if it's dark. The lights will stay on for 5 minutes, giving
+  you plenty of time to do what you need. After 5 minutes, the lights will
+  automatically turn off.
+trigger:
+  - platform: state
+    entity_id:
+      - binary_sensor.entryway_occupancy
+    to: "on"
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 1
+    from: null
+condition: []
+action:
+  - if:
+      - condition: or
+        conditions:
+          - condition: sun
+            after: sunset
+            before: sunrise
+    then:
+      - action: light.turn_on
+        data: {}
+        target:
+          entity_id:
+            - light.entryway_ceiling_lights
+            - light.entryway_wall_lights
+      - delay:
+          hours: 0
+          minutes: 5
+          seconds: 0
+          milliseconds: 0
+      - action: light.turn_off
+        metadata: {}
+        data: {}
+        target:
+          entity_id:
+            - light.entryway_ceiling_lights
+            - light.entryway_wall_lights
+    else:
+      - stop: ""
+  - if:
+      - condition: or
+        conditions:
+          - condition: numeric_state
+            entity_id: sensor.lux_sensor
+            below: 10
+    then:
+      - action: light.turn_on
+        data: {}
+        target:
+          entity_id:
+            - light.entryway_ceiling_lights
+            - light.entryway_wall_lights
+      - delay:
+          hours: 0
+          minutes: 5
+          seconds: 0
+          milliseconds: 0
+      - action: light.turn_off
+        metadata: {}
+        data: {}
+        target:
+          entity_id:
+            - light.entryway_ceiling_lights
+            - light.entryway_wall_lights
+    else:
+      - stop: ""
+mode: restart
