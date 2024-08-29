@@ -1,33 +1,81 @@
-alias: "Lights: Turn on bathroom lights on motion"
+alias: "Lights: Bathroom Lights"
 description: >-
-  When you walk into the bathroom, this automation will turn on the ceiling
-  lights with a warm, inviting color. The lights will stay on for 5 minutes,
-  giving you plenty of time to do what you need, and then they'll turn off
-  automatically.
+  This automation turns on the bathroom ceiling lights with a warm, inviting
+  color when you walk in. The lights will stay on for 5 minutes, giving you
+  plenty of time to do what you need. After 5 minutes, the lights will
+  automatically turn off. Additionally, if the shower is on, you'll receive a
+  reminder to turn on the bathroom fan. When the shower turns off, you'll get
+  another reminder to turn off the fan.
 trigger:
   - platform: state
     entity_id:
-      - binary_sensor.bathroom_motion_sensor
+      - binary_sensor.bathroom_occupancy
     to: "on"
     for:
       hours: 0
       minutes: 0
-      seconds: 2
+      seconds: 1
     from: null
 action:
-  - target:
-      entity_id: light.bathroom_celing_lighs
-    action: light.turn_on
-    data:
+  - data:
       rgb_color:
-        - 252
-        - 202
-        - 126
+        - 255
+        - 152
+        - 60
       brightness_pct: 100
-  - delay: "00:05:00"
-  - target:
-      entity_id: light.bathroom_celing_lighs
-    action: light.turn_off
-    data: {}
-mode: queued
-max: 10
+    action: light.turn_on
+    target:
+      entity_id:
+        - light.bathroom_ceiling_lights
+  - delay:
+      hours: 0
+      minutes: 5
+      seconds: 0
+      milliseconds: 0
+  - if:
+      - condition: state
+        entity_id: light.bathroom_ceiling_lights
+        state: "off"
+    then:
+      - stop: ""
+    else:
+      - action: light.turn_off
+        data: {}
+        target:
+          entity_id: light.bathroom_ceiling_lights
+  - if:
+      - condition: state
+        entity_id: binary_sensor.shower_sensor
+        state: "on"
+    then:
+      - data:
+          title: "Reminder: Turn on the bathroom fan"
+          message: The shower is on. Please remember to turn on the bathroom fan.
+          data:
+            importance: low
+            alert_once: true
+            color: blue
+            notification_icon: mdi:fan
+            tag: bathroom
+            channel: updates
+            visibility: public
+        action: notify.mobile_app_pixel_8_pro
+      - wait_for_trigger:
+          - platform: state
+            entity_id: binary_sensor.shower_sensor
+            to: "off"
+      - data:
+          title: "Reminder: Turn off the bathroom fan"
+          message: The shower is off. Please remember to turn off the bathroom fan.
+          data:
+            importance: low
+            alert_once: true
+            color: blue
+            notification_icon: mdi:fan-off
+            tag: bathroom
+            channel: updates
+            visibility: public
+        action: notify.mobile_app_pixel_8_pro
+    else:
+      - stop: ""
+mode: restart
