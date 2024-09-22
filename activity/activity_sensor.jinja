@@ -1,0 +1,60 @@
+{% set watch_activity = states('sensor.google_pixel_watch_2_activity_state') %}
+{% set phone_activity = states('sensor.pixel_8_pro_detected_activity') %}
+{% set vr_in_use = is_state('binary_sensor.quest_2_in_use', 'on') %}
+{% set watch_on_body = is_state('binary_sensor.google_pixel_watch_2_on_body_sensor', 'on') %}
+{% set person_location = states('person.toast') %}
+{% set phone_interactive = is_state('binary_sensor.pixel_8_pro_interactive', 'on') %}
+{% set watch_interactive = is_state('binary_sensor.google_pixel_watch_2_interactive', 'on') %}
+
+{% if vr_in_use %}
+  You're immersed in VR. Have fun exploring!
+{% elif phone_activity in ['running', 'on_bicycle'] or (watch_on_body and watch_activity == 'exercise') %}
+  {% if phone_activity in ['running', 'on_bicycle'] %}
+    You're staying active: {{ phone_activity }}. Keep up the great work!
+  {% else %}
+    {% set exercise_type = state_attr('sensor.google_pixel_watch_2_activity_state', 'exercise_type') %}
+    {% if exercise_type %}
+      You're staying active: {{ exercise_type }}. Keep up the great work!
+    {% else %}
+      You're staying active. Keep up the great work!
+    {% endif %}
+  {% endif %}
+{% elif phone_activity in ['still', 'unknown'] and watch_on_body and watch_activity == 'asleep' %}
+  You're also asleep. Sweet dreams!
+{% elif phone_activity in ['still', 'unknown'] %}
+  {% if person_location == 'work' %}
+    {% if phone_interactive or watch_interactive %}
+      You're at work but interacting with your device. Stay focused!
+    {% else %}
+      You're working. Keep up the good work!
+    {% endif %}
+  {% else %}
+    {% if phone_interactive or watch_interactive %}
+      You're interacting with your device. Stay engaged!
+    {% else %}
+      You're taking a break. Relax and recharge!
+    {% endif %}
+  {% endif %}
+{% elif phone_activity in ['passive', 'unknown'] and watch_on_body and watch_activity in ['passive', 'unknown'] %}
+  {% if phone_interactive or watch_interactive %}
+    You're interacting with your device. Stay engaged!
+  {% else %}
+    You're taking a break. Relax and recharge!
+  {% endif %}
+{% elif phone_activity == 'in_vehicle' %}
+  {% if phone_interactive %}
+    You're using your phone while in a vehicle. Stay connected!
+  {% else %}
+    Looks like you're in a vehicle. Sit back and enjoy the ride!
+  {% endif %}
+{% elif phone_activity in ['on_foot', 'walking'] %}
+  {% if person_location == 'home' %}
+    Moving around the apartment. Keep moving!
+  {% elif person_location == 'work' %}
+    Moving around at Work. Stay productive!
+  {% else %}
+    Taking a walk. Enjoy your stroll!
+  {% endif %}
+{% elif phone_activity == 'tilting' %}
+  Your device is tilting. Make sure it's secure!
+{% endif %}
