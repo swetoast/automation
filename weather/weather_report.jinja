@@ -1,7 +1,7 @@
-    {% set timeofday = states('sensor.timeofday') | capitalize %} 
-    {% set sweden_calendar = states('calendar.sweden') == 'on' %} 
-    {% set sweden_calendar_message = state_attr('calendar.sweden', 'message') %} 
-    {% set current_cloud_coverage = state_attr('weather.forecast_home', 'cloud_coverage') %} 
+    {% set timeofday = states('sensor.time_of_day') | capitalize %} 
+    {% set sweden_calendar = states('calendar.holidays') == 'on' %} 
+    {% set sweden_calendar_message = state_attr('calendar.holidays', 'message') %} 
+    {% set current_cloud_coverage = state_attr('weather.forecast_home', 'cloud_coveage') %} 
     {% set current_pressure = state_attr('weather.forecast_home', 'pressure') %} 
     {% set current_dew_point = state_attr('weather.forecast_home', 'dew_point') %} 
     {% set current_temperature = state_attr('weather.forecast_home', 'temperature') %} 
@@ -12,9 +12,9 @@
     {% set current_precipitation = state_attr('weather.forecast_home', 'precipitation') %} 
     {% set current_temperature = state_attr('weather.forecast_home', 'temperature') %} 
     {% set current_season = states('sensor.season') %} 
-    {% set aurora_chance = states('sensor.aurora_57_12') %} 
-    {% set aurora_visible = states('binary_sensor.aurora_57_12') %} 
-    {% set current_frost_risk = states('sensor.thermal_comfort_frost_risk') %} 
+    {% set aurora_chance = states('sensor.aurora_visibility') %} 
+    {% set aurora_visible = states('binary_sensor.aurora_visibility_alert') %} 
+    {% set current_frost_risk = states('sensor.thermal_outside_comfort_frost_risk') %} 
     {% set thunder_probability = state_attr('weather.smhi_home', 'thunder_probability') %} 
     {% set lightning_counter = states('sensor.blitzortung_lightning_counter') %} 
     {% set lightning_distance = states('sensor.blitzortung_lightning_distance') %} 
@@ -33,10 +33,10 @@
     {% set olive_tree_pollen = state_attr('sensor.pollen_data', 'Olive Tree') %} 
     {% set ragweed_pollen = state_attr('sensor.pollen_data', 'Ragweed') %} 
     {% set current_weather_condition = states('weather.forecast_home') %} 
-    {% set absolute_humidity = states('sensor.thermal_comfort_absolute_humidity') %} 
-    {% set moist_air_enthalpy = states('sensor.thermal_comfort_moist_air_enthalpy') %} 
-    {% set dew_point = states('sensor.thermal_comfort_dew_point') %} 
-    {% set forecast = state_attr('weather.forecast_home', 'forecast') %} 
+    {% set absolute_humidity = states('sensor.thermal_outside_comfort_absolute_humidity') %} 
+    {% set moist_air_enthalpy = states('sensor.thermal_outside_comfort_moist_air_enthalpy') %} 
+    {% set dew_point = states('sensor.thermal_outside_comfort_dew_point') %} 
+    {% set forecast = state_attr('weather.forecast_home', 'forecast') %}
     {% set ns = namespace(temp_sum=0, humidity_sum=0, wind_speed_sum=0, wind_bearing_sum=0, low_temp_sum=0, gust_speed_sum=0, precipitation_sum=0, condition='', precipitation_probability=0) %} 
     {% for i in range(0, 3) %} 
       {% if forecast is defined and forecast[i] is defined %} 
