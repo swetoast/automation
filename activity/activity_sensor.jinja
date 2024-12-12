@@ -1,60 +1,64 @@
-{% set watch_activity = states('sensor.google_pixel_watch_2_activity_state') %}
-{% set phone_activity = states('sensor.pixel_8_pro_detected_activity') %}
-{% set vr_in_use = is_state('binary_sensor.quest_2_in_use', 'on') %}
-{% set watch_on_body = is_state('binary_sensor.google_pixel_watch_2_on_body_sensor', 'on') %}
-{% set person_location = states('person.toast') %}
-{% set phone_interactive = is_state('binary_sensor.pixel_8_pro_interactive', 'on') %}
-{% set watch_interactive = is_state('binary_sensor.google_pixel_watch_2_interactive', 'on') %}
+{% set activity = states('sensor.pixel_8_pro_detected_activity') %}
+{% set phone_state = states('sensor.pixel_8_pro_phone_state') %}
+{% set location = states('person.toast') %}
+{% set interactive = states('binary_sensor.pixel_8_pro_interactive') %}
+{% set bedtime_mode = states('binary_sensor.google_pixel_watch_2_bedtime_mode') %}
+{% set tv_status = states('media_player.bedroom_tv') %}
+{% set music_status = states('media_player.plex_plexamp_android_phone') %}
+{% set work_laptop_status = states('device_tracker.work_laptop') %}
 
-{% if vr_in_use %}
-  You're immersed in VR. Have fun exploring!
-{% elif phone_activity in ['running', 'on_bicycle'] or (watch_on_body and watch_activity == 'exercise') %}
-  {% if phone_activity in ['running', 'on_bicycle'] %}
-    You're staying active: {{ phone_activity }}. Keep up the great work!
-  {% else %}
-    {% set exercise_type = state_attr('sensor.google_pixel_watch_2_activity_state', 'exercise_type') %}
-    {% if exercise_type %}
-      You're staying active: {{ exercise_type }}. Keep up the great work!
-    {% else %}
-      You're staying active. Keep up the great work!
-    {% endif %}
-  {% endif %}
-{% elif phone_activity in ['still', 'unknown'] and watch_on_body and watch_activity == 'asleep' %}
-  You're also asleep. Sweet dreams!
-{% elif phone_activity in ['still', 'unknown'] %}
-  {% if person_location == 'work' %}
-    {% if phone_interactive or watch_interactive %}
-      You're at work but interacting with your device. Stay focused!
-    {% else %}
-      You're working. Keep up the good work!
-    {% endif %}
-  {% else %}
-    {% if phone_interactive or watch_interactive %}
-      You're interacting with your device. Stay engaged!
-    {% else %}
-      You're taking a break. Relax and recharge!
-    {% endif %}
-  {% endif %}
-{% elif phone_activity in ['passive', 'unknown'] and watch_on_body and watch_activity in ['passive', 'unknown'] %}
-  {% if phone_interactive or watch_interactive %}
-    You're interacting with your device. Stay engaged!
-  {% else %}
-    You're taking a break. Relax and recharge!
-  {% endif %}
-{% elif phone_activity == 'in_vehicle' %}
-  {% if phone_interactive %}
-    You're using your phone while in a vehicle. Stay connected!
-  {% else %}
-    Looks like you're in a vehicle. Sit back and enjoy the ride!
-  {% endif %}
-{% elif phone_activity in ['on_foot', 'walking'] %}
-  {% if person_location == 'home' %}
-    Moving around the apartment. Keep moving!
-  {% elif person_location == 'work' %}
-    Moving around at Work. Stay productive!
-  {% else %}
-    Taking a walk. Enjoy your stroll!
-  {% endif %}
-{% elif phone_activity == 'tilting' %}
-  Your device is tilting. Make sure it's secure!
+{% set messages = [] %}
+
+{% if activity == 'running' %}
+  {% set messages = messages + ["You're out for a run."] %}
+{% elif activity == 'on_bicycle' %}
+  {% set messages = messages + ["Cycling around."] %}
+{% elif activity == 'still' %}
+  {% set messages = messages + ["Taking a break, staying still."] %}
+{% elif activity == 'in_vehicle' %}
+  {% set messages = messages + ["Traveling in a vehicle."] %}
+{% elif activity == 'on_foot' %}
+  {% set messages = messages + ["Moving on foot."] %}
+{% elif activity == 'walking' %}
+  {% set messages = messages + ["Out for a walk."] %}
+{% elif activity == 'tilting' %}
+  {% set messages = messages + ["Your device is tilting."] %}
+{% endif %}
+
+{% if phone_state == 'offhook' %}
+  {% set messages = messages + ["On a call."] %}
+{% elif phone_state == 'ringing' %}
+  {% set messages = messages + ["Phone is ringing."] %}
+{% endif %}
+
+{% if location == 'home' %}
+  {% set messages = messages + ["Relaxing at home."] %}
+{% elif location == 'work' %}
+  {% set messages = messages + ["Busy at work."] %}
+{% endif %}
+
+{% if interactive == 'on' %}
+  {% set messages = messages + ["Using your device."] %}
+{% endif %}
+
+{% if bedtime_mode == 'on' %}
+  {% set messages = messages + ["In bed. Sweet dreams!"] %}
+{% endif %}
+
+{% if tv_status == 'playing' %}
+  {% set messages = messages + ["Watching TV."] %}
+{% endif %}
+
+{% if music_status == 'playing' %}
+  {% set messages = messages + ["Listening to music."] %}
+{% endif %}
+
+{% if work_laptop_status == 'home' %}
+  {% set messages = messages + ["Working from home."] %}
+{% endif %}
+
+{% if messages | length > 0 %}
+  {{ messages | join(' ') }}
+{% else %}
+  No relevant data available.
 {% endif %}
