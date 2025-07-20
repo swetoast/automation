@@ -55,7 +55,6 @@
   {% set target = clamped | round(0) | int %}
 {% endif %}
 
-{# Print Each Debug Value #}
 {% set debug = {
   'hot_threshold': hot_threshold,
   'S': S,
@@ -94,7 +93,6 @@
   'final_target': target
 } %}
 
-{# Output to log or sensor — just loop #}
 {% for name, val in debug.items() %}
   {{ name.ljust(24) }} : {{ val }}
 {% endfor %}
