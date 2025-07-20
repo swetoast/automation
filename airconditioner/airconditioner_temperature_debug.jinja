@@ -1,0 +1,100 @@
+{% set hot_threshold        = 25.0 %}
+{% set S                    = 5.0  %}
+{% set M                    = 3.0  %}
+{% set daytime_min_drop     = 1.0  %}
+{% set daytime_max_drop     = 2.0  %}
+{% set pre_cool_max_drop    = 2.0  %}
+{% set forecast_horizon     = 3    %}
+{% set comfort_threshold    = 25.0 %}
+{% set comfort_drop_factor  = 0.1  %}
+{% set hum_spike_threshold  = 5.0  %}
+{% set hum_spike_drop       = 0.5  %}
+
+{% set indoor_temp           = states('sensor.comfort_zone_temperature')     | float %}
+{% set outside_temp          = state_attr('weather.home','temperature')      | float %}
+{% set sun_state             = states('sun.sun')                             %}
+{% set HI                    = states('sensor.thermal_comfort_heat_index_2') | float %}
+{% set Hx                    = states('sensor.thermal_comfort_humidex_2')     | float %}
+{% set delta_temp_rate       = states('sensor.average_temperature_tracker')  | float %}
+{% set delta_hum_rate        = states('sensor.average_humidity_tracker')     | float %}
+{% set raw_forecast          = state_attr('sensor.combined_hourly_weather','forecast') or [] %}
+
+{% set comfort_index         = [HI, Hx] | max %}
+{% set comfort_excess        = comfort_index > comfort_threshold and (comfort_index - comfort_threshold) or 0 %}
+{% set comfort_drop          = (comfort_excess * comfort_drop_factor) | float %}
+{% set comfort_night_drop    = sun_state == 'below_horizon' and comfort_drop or 0 %}
+{% set diff                  = indoor_temp - outside_temp | float %}
+{% set base_drop             = (diff * S / (diff + S)) | float %}
+{% set hot_diff              = outside_temp > hot_threshold and (outside_temp - hot_threshold) or 0 %}
+{% set extra_drop            = (hot_diff * M / (hot_diff + M)) | float %}
+
+{% set peak = 0.0 %}
+{% for entry in raw_forecast[:forecast_horizon] %}
+  {% if entry.temperature is defined and entry.temperature > peak %}
+    {% set peak = entry.temperature %}
+  {% endif %}
+{% endfor %}
+{% set forecast_diff         = peak > hot_threshold and (peak - hot_threshold) or 0 %}
+{% set pre_cool_drop         = (forecast_diff * pre_cool_max_drop / (forecast_diff + pre_cool_max_drop)) | float %}
+{% set humidity_rise_drop    = delta_hum_rate > hum_spike_threshold and hum_spike_drop or 0 %}
+{% set total_drop            = base_drop + extra_drop + pre_cool_drop + comfort_night_drop + humidity_rise_drop %}
+
+{% if sun_state == 'above_horizon' %}
+  {% set applied_drop = [daytime_min_drop, [total_drop, daytime_max_drop] | min] | max %}
+  {% set raw_target   = (indoor_temp | round(0, 'floor')) - applied_drop %}
+{% else %}
+  {% set raw_target   = indoor_temp - total_drop %}
+{% endif %}
+
+{% set clamped = [16, [raw_target, 32] | min] | max %}
+{% if delta_temp_rate > 0.2 %}
+  {% set target = clamped | round(0, 'floor') | int %}
+{% elif delta_temp_rate < -0.2 %}
+  {% set target = clamped | round(0, 'ceil') | int %}
+{% else %}
+  {% set target = clamped | round(0) | int %}
+{% endif %}
+
+{# Print Each Debug Value #}
+{% set debug = {
+  'hot_threshold': hot_threshold,
+  'S': S,
+  'M': M,
+  'daytime_min_drop': daytime_min_drop,
+  'daytime_max_drop': daytime_max_drop,
+  'pre_cool_max_drop': pre_cool_max_drop,
+  'forecast_horizon': forecast_horizon,
+  'comfort_threshold': comfort_threshold,
+  'comfort_drop_factor': comfort_drop_factor,
+  'hum_spike_threshold': hum_spike_threshold,
+  'hum_spike_drop': hum_spike_drop,
+  'indoor_temp': indoor_temp,
+  'outside_temp': outside_temp,
+  'sun_state': sun_state,
+  'HI': HI,
+  'Hx': Hx,
+  'delta_temp_rate': delta_temp_rate,
+  'delta_hum_rate': delta_hum_rate,
+  'comfort_index': comfort_index,
+  'comfort_excess': comfort_excess,
+  'comfort_drop': comfort_drop,
+  'comfort_night_drop': comfort_night_drop,
+  'diff': diff,
+  'base_drop': base_drop,
+  'hot_diff': hot_diff,
+  'extra_drop': extra_drop,
+  'peak_forecast_temp': peak,
+  'forecast_diff': forecast_diff,
+  'pre_cool_drop': pre_cool_drop,
+  'humidity_rise_drop': humidity_rise_drop,
+  'total_drop': total_drop,
+  'applied_drop': applied_drop if sun_state == 'above_horizon' else 'N/A',
+  'raw_target': raw_target,
+  'clamped_target': clamped,
+  'final_target': target
+} %}
+
+{# Output to log or sensor — just loop #}
+{% for name, val in debug.items() %}
+  {{ name.ljust(24) }} : {{ val }}
+{% endfor %}
