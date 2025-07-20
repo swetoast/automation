@@ -1,0 +1,127 @@
+{% set indoor          = states('sensor.comfort_zone_temperature')     | float %}
+{% set outside         = state_attr('weather.home','temperature')      | float %}
+{% set HI              = states('sensor.thermal_comfort_heat_index_2') | float %}
+{% set Hx              = states('sensor.thermal_comfort_humidex_2')     | float %}
+{% set delta_temp_rate = states('sensor.average_temperature_tracker')  | float %}
+{% set delta_hum_rate  = states('sensor.average_humidity_tracker')     | float %}
+{% set forecast        = state_attr('sensor.combined_hourly_weather','forecast') or [] %}
+{% set is_home         = states('person.toast') == 'home' %}
+
+{% set hx_perc = states('sensor.thermal_comfort_humidex_perception_2')    | lower %}
+{% set td_perc = states('sensor.thermal_comfort_thoms_discomfort_perception_2') | lower %}
+{% set comfort_ok = hx_perc not in ['','unknown','unavailable'] 
+                   and td_perc not in ['','unknown','unavailable']
+                   and ('discomfort' not in hx_perc)
+                   and ('discomfort' not in td_perc) %}
+
+{% set window_open      = is_state('binary_sensor.living_room_window_sensor','on') %}
+{% set lightning_dist   = states('sensor.blitzortung_lightning_distance') | float(9999) %}
+{% set lightning_nearby = lightning_dist < 50.0 %}
+
+{% set daily_kwh       = states('sensor.air_conditioner_energy_daily')     | float %}
+{% set daily_cost      = states('sensor.air_conditioner_energy_cost')      | float %}
+{% set avg_rate_today  = daily_kwh > 0 and (daily_cost / daily_kwh) or 0 %}
+{% set current_price   = states('sensor.nord_pool_se3_next_price')        | float %}
+{% set avg_price       = states('sensor.nord_pool_se3_daily_average')     | float %}
+{% set peak_high_price = states('sensor.nord_pool_se3_peak_highest_price')| float %}
+
+{% set comfort_thr       = 25.0 %}
+{% set comfort_index     = [HI, Hx] | max %}
+{% set comfort_excess    = comfort_index > comfort_thr and comfort_index - comfort_thr or 0 %}
+{% set comfort_night_drop= (states('sun.sun') == 'below_horizon')
+                            and (comfort_excess * 0.1)
+                            or 0 %}
+
+{% set S            = 5.0 %}
+{% set M            = 3.0 %}
+{% set diff         = indoor - outside %}
+{% set base_drop    = (diff * S) / (diff + S) %}
+{% set hot_thr      = 25.0 %}
+{% set extra_drop   = (outside > hot_thr)
+                       and ((outside - hot_thr) * M / ((outside - hot_thr) + M))
+                       or 0 %}
+
+{% set pre_max_drop  = 2.0 %}
+{% set horiz         = 3 %}
+{% set peak          = namespace(val=0.0) %}
+{% for ent in forecast[:horiz] %}
+  {% if ent.temperature is defined and ent.temperature > peak.val %}
+    {% set peak.val = ent.temperature %}
+  {% endif %}
+{% endfor %}
+{% set f_diff        = peak.val > hot_thr and peak.val - hot_thr or 0 %}
+{% set pre_cool_drop = f_diff > 0
+                       and (f_diff * pre_max_drop
+                       / (f_diff + pre_max_drop))
+                       or 0 %}
+
+{% set humidity_rise_drop = delta_hum_rate > 5.0 and 0.5 or 0 %}
+
+{% set price_factor  = avg_price > 0 and (current_price / avg_price) or 1 %}
+{% set price_drop    = price_factor > 1.2 and 1.0 or 0 %}
+
+{% set total_drop    = base_drop
+                       + extra_drop
+                       + pre_cool_drop
+                       + comfort_night_drop
+                       + humidity_rise_drop
+                       + price_drop %}
+
+{% set is_day = states('sun.sun') == 'above_horizon' %}
+{% if is_day %}
+  {% set applied = [1.0, [total_drop, 2.0] | min] | max %}
+{% else %}
+  {% set applied = total_drop %}
+{% endif %}
+{% set raw_target = (indoor | round(0, 'floor')) - applied %}
+{% set clamped    = [16, [raw_target, 32] | min] | max %}
+{% if delta_temp_rate > 0.2 %}
+  {% set target = clamped | round(0, 'floor') %}
+{% elif delta_temp_rate < -0.2 %}
+  {% set target = clamped | round(0, 'ceil') %}
+{% else %}
+  {% set target = clamped | round(0) %}
+{% endif %}
+
+{% set prev_mode = state_attr('climate.air_conditioner','hvac_mode') %}
+{% set step      = state_attr('climate.air_conditioner','target_temp_step') | float %}
+{% set upper_thr = target + step %}
+{% set lower_thr = target - step %}
+
+{% if not is_home %}
+  off
+
+{% elif lightning_nearby %}
+  off
+
+{% elif not window_open %}
+  fan_only
+
+{% elif comfort_ok %}
+  off
+
+{% elif humidity_rise_drop > 0 %}
+  dry
+
+{% elif current_price >= peak_high_price
+       or (current_price > avg_price and not is_op1 and not is_op2) %}
+  fan_only
+
+{% elif pre_cool_drop >= 1.0 %}
+  cool
+
+{% elif prev_mode == 'fan_only' and indoor >= upper_thr %}
+  cool
+
+{% elif prev_mode == 'cool' and indoor <= lower_thr %}
+  fan_only
+
+{% elif indoor > upper_thr %}
+  cool
+
+{% elif indoor < lower_thr %}
+  fan_only
+
+{% else %}
+  {{ prev_mode or 'off' }}
+{% endif %}
