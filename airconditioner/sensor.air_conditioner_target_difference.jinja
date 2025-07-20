@@ -1,31 +1,77 @@
-{% set daytime_additional_cooling = true %}
+{% set hot_threshold        = 25.0 %}
+{% set S                    = 5.0  %}
+{% set M                    = 3.0  %}
+{% set daytime_min_drop     = 1.0  %}
+{% set daytime_max_drop     = 2.0  %}
+{% set pre_cool_max_drop    = 2.0  %}
+{% set forecast_horizon     = 3    %}
+{% set comfort_threshold    = 25.0 %}
+{% set comfort_drop_factor  = 0.1  %}
+{% set hum_spike_threshold  = 5.0  %}
+{% set hum_spike_drop       = 0.5  %}
 
-{% set forecast = state_attr('weather.forecast_home', 'forecast') %}
-{% set current_outdoor_temp = states('sensor.average_outdoor_temperature')|float %}
-{% set indoor_temp = states('sensor.average_temp_linked_rooms')|float %}
-{% set sun_state = states('sun.sun') %}
+{% set indoor_temp           = states('sensor.comfort_zone_temperature')     | float %}
+{% set outside_temp          = state_attr('weather.home','temperature')      | float %}
+{% set sun_state             = states('sun.sun')                             %}
+{% set HI                    = states('sensor.thermal_comfort_heat_index_2') | float %}
+{% set Hx                    = states('sensor.thermal_comfort_humidex_2')     | float %}
+{% set delta_temp_rate       = states('sensor.average_temperature_tracker')  | float %}
+{% set delta_hum_rate        = states('sensor.average_humidity_tracker')     | float %}
+{% set raw_forecast          = state_attr('sensor.combined_hourly_weather','forecast') or [] %}
 
+{% set comfort_index         = [HI, Hx] | max %}
+{% set comfort_excess        = comfort_index > comfort_threshold
+                                 and (comfort_index - comfort_threshold)
+                                 or 0 %}
+{% set comfort_drop         = (comfort_excess * comfort_drop_factor)        | float %}
+{% set comfort_night_drop   = sun_state == 'below_horizon'
+                                 and comfort_drop
+                                 or 0 %}
+                                 
+{% set diff                  = indoor_temp - outside_temp                    | float %}
+{% set base_drop             = (diff * S / (diff + S))                       | float %}
+{% set hot_diff              = outside_temp > hot_threshold
+                                 and (outside_temp - hot_threshold)
+                                 or 0 %}
+{% set extra_drop            = (hot_diff * M / (hot_diff + M))               | float %}
 
-{% set ns = namespace(temp_sum=0) %}
-{% for i in range(0, 2) %}
-  {% if forecast is defined and forecast[i] is defined %}
-    {% set ns.temp_sum = ns.temp_sum + forecast[i]['temperature']|float %}
+{% set peak                  = 0.0 %}
+{% for entry in raw_forecast[:forecast_horizon] %}
+  {% if entry.temperature is defined and entry.temperature > peak %}
+    {% set peak = entry.temperature %}
   {% endif %}
 {% endfor %}
-{% set average_forecast_temp = (ns.temp_sum / 2)|round(1) %}
-{% set cooling_offset = (indoor_temp - average_forecast_temp)|round(1) %}
-{% set cooling_offset_divided = (cooling_offset / 2)|round(1) %}
-{% set adjusted_temp = (current_outdoor_temp - cooling_offset_divided)|round(1) %}
+{% set forecast_diff         = peak > hot_threshold
+                                 and (peak - hot_threshold)
+                                 or 0 %}
+{% set pre_cool_drop         = (forecast_diff * pre_cool_max_drop
+                                 / (forecast_diff + pre_cool_max_drop))      | float %}
 
+{% set humidity_rise_drop    = delta_hum_rate > hum_spike_threshold
+                                 and hum_spike_drop
+                                 or 0 %}
+
+{% set total_drop            = base_drop
+                                  + extra_drop
+                                  + pre_cool_drop
+                                  + comfort_night_drop
+                                  + humidity_rise_drop %}
+                                  
 {% if sun_state == 'above_horizon' %}
-  {% set target_temp = indoor_temp | round(0, 'floor') %}
-  {% if daytime_additional_cooling %}
-    {% set target_temp = target_temp - 1 %}
-  {% endif %}
-{% elif sun_state == 'below_horizon' %}
-  {% set target_temp = indoor_temp - cooling_offset_divided %}
+  {% set applied_drop = [daytime_min_drop, [total_drop, daytime_max_drop] | min] | max %}
+  {% set raw_target   = (indoor_temp | round(0, 'floor')) - applied_drop %}
+{% else %}
+  {% set raw_target   = indoor_temp - total_drop %}
 {% endif %}
 
-{% set target_temp = [16, [target_temp, 32] | min] | max %}
+{% set clamped             = [16, [raw_target, 32] | min] | max %}
 
-{{ target_temp }}
+{% if delta_temp_rate > 0.2 %}
+  {% set target = clamped | round(0, 'floor') | int %}
+{% elif delta_temp_rate < -0.2 %}
+  {% set target = clamped | round(0, 'ceil')  | int %}
+{% else %}
+  {% set target = clamped | round(0)          | int %}
+{% endif %}
+
+{{ target }}
