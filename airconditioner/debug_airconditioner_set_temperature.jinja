@@ -31,19 +31,19 @@
 {% set hot_diff   = outside > hot_threshold and (outside - hot_threshold) or 0 %}
 {% set drop_extra = hot_diff > 0 and (hot_diff * M / (hot_diff + M)) or 0 %}
 
-{% set peak      = namespace(val=0.0) %}
+{% set peak = namespace(val=0.0) %}
 {% for e in forecast[:forecast_horizon] %}
   {% if e.temperature is defined and e.temperature > peak.val %}
     {% set peak.val = e.temperature %}
   {% endif %}
 {% endfor %}
+
 {% set fdiff    = peak.val > hot_threshold and (peak.val - hot_threshold) or 0 %}
 {% set drop_pre = fdiff > 0 
                    and (fdiff * pre_cool_max_drop / (fdiff + pre_cool_max_drop))
                    or 0 %}
 
-{% set drop_hum = dhum_rate > hum_thr and hum_drop or 0 %}
-
+{% set drop_hum  = dhum_rate > hum_thr and hum_drop or 0 %}
 {% set total_drop = drop_base + drop_extra + drop_pre + drop_night + drop_hum %}
 
 {% if is_day %}
@@ -63,4 +63,55 @@
   {% set target = clamped | round(0)          | int %}
 {% endif %}
 
-{{ target }}
+Parameters:
+ • hot_threshold:     {{ hot_threshold }}
+ • S-factor:          {{ S }}
+ • M-factor:          {{ M }}
+ • daytime_min_drop:  {{ daytime_min_drop }}
+ • daytime_max_drop:  {{ daytime_max_drop }}
+ • night_min_drop:    {{ night_min_drop }}
+ • night_max_drop:    {{ night_max_drop }}
+ • pre_cool_max_drop: {{ pre_cool_max_drop }}
+ • forecast_horizon:  {{ forecast_horizon }}
+ • comfort_thr:       {{ comfort_thr }}
+ • comfort_factor:    {{ comfort_factor }}
+ • hum_thr:           {{ hum_thr }}
+ • hum_drop:          {{ hum_drop }}
+
+Inputs:
+ • indoor:            {{ indoor }} °C
+ • outside:           {{ outside }} °C
+ • sun_state:         {{ sun_state }}
+ • is_day:            {{ is_day }}
+ • HI:                {{ HI }} °C
+ • Hx:                {{ Hx }} °C
+ • Δtemp_rate:        {{ dtemp_rate }} °C/min
+ • Δhum_rate:         {{ dhum_rate }} %/min
+
+Comfort Drop:
+ • comfort_index:     {{ cidx }} °C
+ • comfort_excess:    {{ cexcess }}
+ • drop_night:        {{ drop_night }}
+
+Drop Components:
+ • diff:              {{ diff }}
+ • drop_base:         {{ drop_base }}
+ • hot_diff:          {{ hot_diff }}
+ • drop_extra:        {{ drop_extra }}
+
+Forecast:
+ • peak.val:          {{ peak.val }}
+ • forecast_diff:     {{ fdiff }}
+ • drop_pre:          {{ drop_pre }}
+
+Humidity Spike:
+ • drop_hum:          {{ drop_hum }}
+
+Totals & Clamps:
+ • total_drop:        {{ total_drop }}
+ • applied_drop:      {{ applied_drop }}
+ • raw_target:        {{ raw_target }}
+ • clamped:           {{ clamped }}
+
+Final Target:
+ • target:            {{ target }} °C
