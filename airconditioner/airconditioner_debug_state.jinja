@@ -1,0 +1,126 @@
+{% set indoor           = states('sensor.comfort_zone_temperature')     | float %}
+{% set outside          = state_attr('weather.home','temperature')      | float %}
+{% set HI               = states('sensor.thermal_comfort_heat_index_2') | float %}
+{% set Hx               = states('sensor.thermal_comfort_humidex_2')     | float %}
+{% set delta_temp_rate  = states('sensor.average_temperature_tracker')  | float %}
+{% set delta_hum_rate   = states('sensor.average_humidity_tracker')     | float %}
+{% set forecast         = state_attr('sensor.combined_hourly_weather','forecast') or [] %}
+{% set is_home          = is_state('person.toast','home') %}
+{% set override_mode    = is_state('input_boolean.airconditioner_override','on') %}
+
+{% set hx_perc    = states('sensor.thermal_comfort_humidex_perception_2')    | lower %}
+{% set td_perc    = states('sensor.thermal_comfort_thoms_discomfort_perception_2') | lower %}
+{% set comfort_ok = (hx_perc == 'comfortable') and (td_perc == 'no_discomfort') %}
+
+{% set window_open     = is_state('binary_sensor.living_room_window_sensor','on') %}
+{% set lightning_alert = is_state('binary_sensor.lightning_monitor','on') %}
+
+{% set daily_kwh      = states('sensor.air_conditioner_energy_daily') | float %}
+{% set daily_cost     = states('sensor.air_conditioner_energy_cost')  | float %}
+{% set avg_rate_today = daily_kwh > 0 and (daily_cost / daily_kwh) or 0 %}
+{% set current_price  = states('sensor.nord_pool_se3_next_price')     | float %}
+{% set avg_price      = states('sensor.nord_pool_se3_daily_average')  | float %}
+{% set peak_high_price= states('sensor.nord_pool_se3_peak_highest_price') | float %}
+
+{% set ts_now    = as_timestamp(now()) %}
+{% set op1_from  = as_timestamp(states('sensor.nord_pool_se3_off_peak_1_time_from')) | default(0) %}
+{% set op1_to    = as_timestamp(states('sensor.nord_pool_se3_off_peak_1_time_until')) | default(0) %}
+{% set op2_from  = as_timestamp(states('sensor.nord_pool_se3_off_peak_2_time_from')) | default(0) %}
+{% set op2_to    = as_timestamp(states('sensor.nord_pool_se3_off_peak_2_time_until')) | default(0) %}
+{% set is_op1    = ts_now >= op1_from and ts_now < op1_to %}
+{% set is_op2    = ts_now >= op2_from and ts_now < op2_to %}
+
+{% set comfort_thr        = 25.0 %}
+{% set comfort_index      = [HI, Hx] | max %}
+{% set comfort_excess     = comfort_index > comfort_thr and (comfort_index - comfort_thr) or 0 %}
+{% set comfort_night_drop = is_state('sun.sun','below_horizon') and (comfort_excess * 0.1) or 0 %}
+
+{% set S            = 5.0 %}
+{% set M            = 3.0 %}
+{% set diff         = indoor - outside %}
+{% set base_drop    = (diff * S) / (diff + S) %}
+{% set hot_thr      = 25.0 %}
+{% set extra_drop   = outside > hot_thr and ((outside - hot_thr) * M / ((outside - hot_thr) + M)) or 0 %}
+{% set pre_max_drop = 2.0 %}
+{% set horizon      = 3 %}
+{% set peak        = namespace(val=0.0) %}
+{% for ent in forecast[:horizon] %}
+  {% if ent.temperature is defined and ent.temperature > peak.val %}
+    {% set peak.val = ent.temperature %}
+  {% endif %}
+{% endfor %}
+{% set f_diff           = peak.val > hot_thr and (peak.val - hot_thr) or 0 %}
+{% set pre_cool_drop    = f_diff > 0 and (f_diff * pre_max_drop / (f_diff + pre_max_drop)) or 0 %}
+{% set humidity_rise_drop = delta_hum_rate > 5.0 and 0.5 or 0 %}
+{% set price_factor     = avg_price > 0 and (current_price / avg_price) or 1 %}
+{% set price_drop       = price_factor > 1.2 and 1.0 or 0 %}
+{% set total_drop       = base_drop + extra_drop + pre_cool_drop + comfort_night_drop + humidity_rise_drop + price_drop %}
+
+{% set is_day    = is_state('sun.sun','above_horizon') %}
+{% set applied   = is_day and ([1.0, [total_drop,2.0] | min] | max) or total_drop %}
+{% set raw_target= indoor|round(0,'floor') - applied %}
+{% set clamped   = [16, [raw_target,32]|min] | max %}
+{% if delta_temp_rate > 0.2 %}
+  {% set target = clamped | round(0,'floor') %}
+{% elif delta_temp_rate < -0.2 %}
+  {% set target = clamped | round(0,'ceil') %}
+{% else %}
+  {% set target = clamped | round(0) %}
+{% endif %}
+
+{% set step      = state_attr('climate.air_conditioner','target_temp_step') | float %}
+{% set upper_thr = target + step %}
+{% set lower_thr = target - step %}
+{% set prev_mode = state_attr('climate.air_conditioner','hvac_mode') %}
+
+Indoor Temperature:            {{ indoor }}
+Outside Temperature:           {{ outside }}
+Heat Index (HI):               {{ HI }}
+Humidex (Hx):                  {{ Hx }}
+ΔTemp Rate:                    {{ delta_temp_rate }}
+ΔHum Rate:                     {{ delta_hum_rate }}
+
+Forecast (next {{ horizon }} hrs): {{ forecast[:horizon] }}
+
+Home Occupied:                 {{ is_home }}
+Override Mode Active:          {{ override_mode }}
+Comfort OK:                    {{ comfort_ok }}
+
+Window Open:                   {{ window_open }}
+Lightning Alert:               {{ lightning_alert }}
+
+Daily kWh:                     {{ daily_kwh }}
+Daily Cost:                    {{ daily_cost }}
+Average Rate Today:            {{ avg_rate_today }}
+
+Current Price:                 {{ current_price }}
+Average Price:                 {{ avg_price }}
+Peak High Price:               {{ peak_high_price }}
+
+Off-Peak #1 Active:            {{ is_op1 }} (from {{ op1_from }} to {{ op1_to }})
+Off-Peak #2 Active:            {{ is_op2 }} (from {{ op2_from }} to {{ op2_to }})
+
+Comfort Threshold:             {{ comfort_thr }}
+Comfort Index:                 {{ comfort_index }}
+Comfort Excess:                {{ comfort_excess }}
+Night Comfort Drop:            {{ comfort_night_drop }}
+
+Base Drop:                     {{ base_drop }}
+Extra Drop:                    {{ extra_drop }}
+Pre-cool Drop:                 {{ pre_cool_drop }}
+Humidity-rise Drop:            {{ humidity_rise_drop }}
+Price Drop:                    {{ price_drop }}
+Total Drop:                    {{ total_drop }}
+
+Applied Drop (day/night):      {{ applied }}
+Raw Target Temp:               {{ raw_target }}
+Clamped Target Temp:           {{ clamped }}
+Final Target Temp:             {{ target }}
+Step Size:                     {{ step }}
+Upper Threshold:               {{ upper_thr }}
+Lower Threshold:               {{ lower_thr }}
+
+Previous HVAC Mode:            '{{ prev_mode }}'
+Desired HVAC Mode Decision:    {{ states('sensor.air_conditioner_hvac_mode_decision') }}
+
+Final AC Mode to Apply:        {{ states('sensor.air_conditioner_hvac_mode_decision') }}
