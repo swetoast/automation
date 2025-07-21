@@ -6,16 +6,6 @@
   {%- endif -%}
 {%- endmacro %}
 
-{%- macro pressure_message(p) -%}
-  {%- if p <  980  -%}Intense storms
-  {%- elif p < 1000 -%}Unsettled rain & gusts
-  {%- elif p < 1010 -%}Showers possible
-  {%- elif p < 1020 -%}Mixed sun & clouds
-  {%- elif p < 1030 -%}Fair weather & light winds
-  {%- else          -%}Stable clear skies
-  {%- endif -%}
-{%- endmacro %}
-
 {%- macro label_wind(s) -%}
   {%- if s < 5 -%}light breeze
   {%- elif s < 15 -%}moderate wind
@@ -44,9 +34,35 @@
   {{ weather_labels[c] if c in weather_labels else c.replace('_',' ').replace('-',' ') }}
 {%- endmacro %}
 
-{%- macro pressure_message(season,p) -%}
-  {%- if p < 1010 -%}Storm risk today
-  {%- elif p < 1015 -%}Showers possible
+{%- macro pressure_message(season, p) -%}
+  {%- set s = season | lower -%}
+
+  {%- if p < 980 -%}
+    Intense storms
+  {%- elif p < 1000 -%}
+    Unsettled rain & gusts
+  {%- elif p < 1010 -%}
+    Showers possible
+  {%- elif p < 1020 -%}
+    {%- if s == 'spring' -%}Spring mix
+    {%- elif s == 'summer' -%}Mixed sun & clouds
+    {%- elif s in ['autumn','fall'] -%}Autumn mix
+    {%- else -%}Winter mix
+    {%- endif -%}
+
+  {%- elif p < 1030 -%}
+    {%- if s == 'spring' -%}Fair spring weather
+    {%- elif s == 'summer' -%}Fair summer & light winds
+    {%- elif s in ['autumn','fall'] -%}Fair autumn weather
+    {%- else -%}Fair winter weather
+    {%- endif -%}
+
+  {%- else -%}
+    {%- if s == 'spring' -%}Clear spring skies
+    {%- elif s == 'summer' -%}Stable clear summer skies
+    {%- elif s in ['autumn','fall'] -%}Stable clear autumn skies
+    {%- else -%}Stable clear winter skies
+    {%- endif -%}
   {%- endif -%}
 {%- endmacro %}
 
@@ -65,43 +81,44 @@
   {{ fire_labels[i|string] if (i|string) in fire_labels else 'unknown' }}
 {%- endmacro %}
 
-{%- set tod       = states('sensor.time_of_day')                   | capitalize -%}
-{%- set cal_start = state_attr('calendar.calander','start_time')   -%}
+{%- set tod        = states('sensor.time_of_day')                   | capitalize -%}
+{%- set season     = states('sensor.season')                        | capitalize -%}
+{%- set cal_start  = state_attr('calendar.calander','start_time')   -%}
 {%- if cal_start and as_datetime(cal_start).date() == now().date() -%}
-  {%- set holiday = state_attr('calendar.calander','message')     -%}
+  {%- set holiday = state_attr('calendar.calander','message')       -%}
 {%- else -%}
-  {%- set holiday = none                                       -%}
+  {%- set holiday = none                                         -%}
 {%- endif -%}
 
-{%- set weather    = states('sensor.combined_hourly_weather')                         -%}
-{%- set temp       = state_attr('sensor.combined_hourly_weather','temperature')       | round(1) -%}
-{%- set dew_perc   = states('sensor.thermal_outside_comfort_dew_point_perception')     | replace('_',' ') -%}
-{%- set humidex    = states('sensor.thermal_outside_comfort_humidex_perception')       | replace('_',' ') -%}
-{%- set frost_r    = states('sensor.thermal_outside_comfort_frost_risk')               -%}
-{%- set cloud      = state_attr('sensor.combined_hourly_weather','cloud_coverage')     | int     -%}
-{%- set press      = state_attr('sensor.combined_hourly_weather','pressure')           | int     -%}
-{%- set wind_spd   = state_attr('sensor.combined_hourly_weather','wind_speed')         | round(1) -%}
-{%- set wind_dir   = state_attr('sensor.combined_hourly_weather','wind_bearing')       | int     -%}
-{%- set forecast   = state_attr('sensor.combined_hourly_weather','forecast')           -%}
+{%- set weather   = states('sensor.combined_hourly_weather')                           -%}
+{%- set temp      = state_attr('sensor.combined_hourly_weather','temperature')         | round(1) -%}
+{%- set dew_perc  = states('sensor.thermal_outside_comfort_dew_point_perception')       | replace('_',' ') -%}
+{%- set humidex   = states('sensor.thermal_outside_comfort_humidex_perception')          | replace('_',' ') -%}
+{%- set frost_r   = states('sensor.thermal_outside_comfort_frost_risk')                 -%}
+{%- set cloud     = state_attr('sensor.combined_hourly_weather','cloud_coverage')       | int     -%}
+{%- set press     = state_attr('sensor.combined_hourly_weather','pressure')             | int     -%}
+{%- set wind_spd  = state_attr('sensor.combined_hourly_weather','wind_speed')           | round(1) -%}
+{%- set wind_dir  = state_attr('sensor.combined_hourly_weather','wind_bearing')         | int     -%}
+{%- set forecast  = state_attr('sensor.combined_hourly_weather','forecast')             -%}
 
 {%- set rain_states = [
   'rainy','pouring','lightning-rainy','snowy','snowy-rainy'
 ] -%}
-{%- set rain_alert = states('sensor.rain_alert') | int                                 -%}
+{%- set rain_alert = states('sensor.rain_alert')|int                                  -%}
 {%- set now_ts     = as_timestamp(now())                                              -%}
 {%- set precip_fx  = forecast
    | selectattr('precipitation','>',0)
    | selectattr('datetime','>', now_ts|timestamp_custom('%Y-%m-%dT%H:%M:%S%z',false))
-   | list                                                                          -%}
+   | list                                                                           -%}
 
-{%- set uv_index = states('sensor.uv_index_sensor')                                | float   -%}
-{%- set spf      = states('sensor.spf_recommendation')                            -%}
-{%- set sun_exp  = states('sensor.sun_exposure_time')                             -%}
-{%- set fire_idx = state_attr('sensor.brandrisk_ute','riskIndex')                -%}
+{%- set uv_index  = states('sensor.uv_index_sensor')                               | float   -%}
+{%- set spf       = states('sensor.spf_recommendation')                           -%}
+{%- set sun_exp   = states('sensor.sun_exposure_time')                            -%}
+{%- set fire_idx  = state_attr('sensor.brandrisk_ute','riskIndex')                -%}
 
 {%- set aurora_on = states('binary_sensor.aurora_visibility_alert')=='on'         -%}
 {%- set aurora_ch = states('sensor.aurora_visibility_visibility')|float           -%}
-{%- set thunder   = states('sensor.chance_of_thunder') in ['on','true','yes']     -%}
+{%- set thunder   = states('sensor.chance_of_thunder') in ['on','true','yes']      -%}
 
 {%- set pollens = [] -%}
 {%- for p in ['Alder','Birch','Grasses','Mugwort','Olive Tree','Ragweed'] -%}
@@ -129,8 +146,8 @@
 {% elif rain_alert > 0 %}
   {% set narrative = narrative + [ "Rain in " ~ rain_alert ~ " min." ] %}
 {% elif precip_fx %}
-  {% set nt  = as_timestamp(precip_fx[0].datetime) | timestamp_custom('%H:%M',false) %}
-  {% set amt = precip_fx[0].precipitation | round(1) %}
+  {% set nt  = as_timestamp(precip_fx[0].datetime)|timestamp_custom('%H:%M',false) %}
+  {% set amt = precip_fx[0].precipitation|round(1) %}
   {% set narrative = narrative + [ "Expect rain at " ~ nt ~ " (" ~ amt ~ " mm)." ] %}
 {% endif %}
 
@@ -141,14 +158,14 @@
   {% set narrative = narrative + [ "Humidex " ~ humidex ~ "." ] %}
 {% endif %}
 
-{% set fl = frost_message(frost_r) %}
-{% if fl %}
-  {% set narrative = narrative + [ fl ~ "." ] %}
+{% set fm = frost_message(frost_r) %}
+{% if fm %}
+  {% set narrative = narrative + [ fm ~ "." ] %}
 {% endif %}
 
-{% set sr = pressure_message(season, press) %}
-{% if sr %}
-  {% set narrative = narrative + [ sr ~ "." ] %}
+{% set pr = pressure_message(season, press) %}
+{% if pr %}
+  {% set narrative = narrative + [ pr ~ "." ] %}
 {% endif %}
 
 {% if wind_spd is not none %}
@@ -170,24 +187,24 @@
 {% if forecast and forecast|length > 1 %}
   {% for slot in forecast[1:4] %}
     {% set tm  = slot.datetime[11:16] %}
-    {% set tmp = slot.temperature | round(1) %}
-    {% set pr  = slot.precipitation | float %}
-    {% set tag = pr>0 and ((tmp<=0 and "snow") or "rain") ~ " expected" or "" %}
+    {% set tmp = slot.temperature|round(1) %}
+    {% set prc = slot.precipitation|float %}
+    {% set tag = prc>0 and ((tmp<=0 and "snow") or "rain")~" expected" or "" %}
     {% set narrative = narrative + [
       tm ~ " " ~ humanize_cond(slot.condition) ~
-      " " ~ tmp ~ "°C" ~ (tag and " (" ~ tag ~ ")") ~ "."
+      " " ~ tmp ~ "°C" ~ (tag and " ("~tag~")") ~ "."
     ] %}
   {% endfor %}
 {% endif %}
 
 {% if pollens %}
-  {% set narrative = narrative + [ "Pollen: " ~ pollens | join(", ") ~ "." ] %}
+  {% set narrative = narrative + [ "Pollen: " ~ pollens|join(", ") ~ "." ] %}
 {% endif %}
 
 {% if uv_index >= 3 %}
   {% set uv_msg = uv_index < 6
-       and "UV " ~ uv_index ~ " sunscreen advised."
-       or  "UV " ~ uv_index ~ " strong protection." %}
+       and "UV " ~ uv_index ~ " – sunscreen advised."
+       or  "UV " ~ uv_index ~ " – strong protection." %}
   {% set narrative = narrative + [ uv_msg ] %}
   {% if spf and sun_exp %}
     {% set narrative = narrative + [
@@ -197,7 +214,7 @@
 {% endif %}
 
 {% if fire_idx %}
-  {% set narrative = narrative + [ "Fire risk is " ~ humanize_fire(fire_idx) ~ " outside." ] %}
+  {% set narrative = narrative + [ "Fire risk " ~ humanize_fire(fire_idx) ~ "." ] %}
 {% endif %}
 
 {{ narrative | join(" ") }}
