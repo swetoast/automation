@@ -81,6 +81,20 @@
 {% set is_in_bed   = bedtime_mode and sleep_confidence < 100 %}
 {% set showering   = room == 'bathroom' and bathroom_steam %}
 
+{%- set notif_count = states('sensor.pixel_8_pro_active_notification_count') | int %}
+{%- if notif_count > 0 %}
+  {%- set call_category = state_attr(
+       'sensor.pixel_8_pro_active_notification_count',
+       'com.google.android.dialer_1_category'
+     ) %}
+  {%- if call_category == 'call' %}
+    {%- set call_with = state_attr(
+         'sensor.pixel_8_pro_active_notification_count',
+         'android.title_com.google.android.dialer_1'
+       ) or 'someone' %}
+  {%- endif %}
+{%- endif %}
+
 {% macro zone_activity(loc) -%}
   {%- if loc == 'Stora Coop' -%}
     you’re strolling the aisles at Stora Coop, picking up groceries for the week
@@ -177,11 +191,13 @@
 {% elif location == 'Work' %}
   {% set status_activities = status_activities + ['working at the office'] %}
 {% endif %}
-{% if phone_state == 'offhook' %}
-  {% set status_activities = status_activities + ['in a phone call'] %}
+
+{% if call_with is defined %}
+  {% set status_activities = status_activities + ['on a call with ' ~ call_with] %}
 {% elif phone_state == 'ringing' %}
   {% set status_activities = status_activities + ['phone is ringing'] %}
 {% endif %}
+
 {% if interactive %}
   {% set status_activities = status_activities + ['interacting on your phone'] %}
 {% endif %}
@@ -191,9 +207,11 @@
 
 {% set parts = [] %}
 {% set parts = parts + [ zone_activity(location) ~ ' and ' ~ place(location, room, showering) ] %}
+
 {% if adverb_activities %}
   {% set parts = parts + [ adverb_activities | join('; ') ] %}
 {% endif %}
+
 {% if status_activities %}
   {% set parts = parts + [ 'Meanwhile, you’re ' ~ (status_activities | join(' and ')) ] %}
 {% endif %}
