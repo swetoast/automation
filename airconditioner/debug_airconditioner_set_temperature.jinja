@@ -1,27 +1,27 @@
 {% set hot_threshold     = 25.0 %}
-{% set S                 = 5.0 %}
-{% set M                 = 3.0 %}
-{% set daytime_min_drop  = 1.0 %}
-{% set daytime_max_drop  = 2.0 %}
-{% set night_min_drop    = 2.0 %}
-{% set night_max_drop    = 4.0 %}
-{% set pre_cool_max_drop = 2.0 %}
-{% set forecast_horizon  = 3 %}
+{% set S                 =  5.0 %}
+{% set M                 =  3.0 %}
+{% set daytime_min_drop  =  1.0 %}
+{% set daytime_max_drop  =  2.0 %}
+{% set night_min_drop    =  2.0 %}
+{% set night_max_drop    =  4.0 %}
+{% set pre_cool_max_drop =  2.0 %}
+{% set forecast_horizon  =    3 %}
 {% set comfort_thr       = 25.0 %}
-{% set comfort_factor    = 0.1 %}
-{% set hum_thr           = 5.0 %}
-{% set hum_drop          = 0.5 %}
-{% set outside_bonus_max = 2.0 %}
-{% set hysteresis_thresh = 0.2 %}
+{% set comfort_factor    =  0.1 %}
+{% set hum_thr           =  5.0 %}
+{% set hum_drop          =  0.5 %}
+{% set outside_bonus_max =  2.0 %}
+{% set hysteresis_thresh =  0.2 %}
 
-{% set indoor         = states('sensor.comfort_zone_temperature')           | float %}
-{% set outside        = state_attr('weather.home','temperature')           | float %}
-{% set is_day         = states('sun.sun') == 'above_horizon'               %}
-{% set HI             = states('sensor.thermal_comfort_heat_index_2')      | float %}
-{% set Hx             = states('sensor.thermal_comfort_humidex_2')          | float %}
-{% set dout_rate      = states('sensor.outside_weather_tracker')           | float %}
-{% set dhum_out_rate  = states('sensor.outside_humidity_tracker')          | float %}
-{% set dhum_in_rate   = states('sensor.average_humidity_tracker')          | float %}
+{% set indoor         = states('sensor.comfort_zone_temperature')             | float %}
+{% set outside        = state_attr('weather.home','temperature')              | float %}
+{% set is_day         = states('sun.sun') == 'above_horizon'                          %}
+{% set HI             = states('sensor.thermal_comfort_heat_index_2')         | float %}
+{% set Hx             = states('sensor.thermal_comfort_humidex_2')            | float %}
+{% set dout_rate      = states('sensor.outside_weather_tracker')              | float %}
+{% set dhum_out_rate  = states('sensor.outside_humidity_tracker')             | float %}
+{% set dhum_in_rate   = states('sensor.average_humidity_tracker')             | float %}
 {% set forecast       = state_attr('sensor.combined_hourly_weather','forecast') or [] %}
 
 {% set comfort_idx    = [HI, Hx] | max %}
@@ -57,13 +57,13 @@
                      or 0 %}
 
 {% set total_drop = drop_base
-                 + drop_extra
-                 + drop_pre
-                 + drop_comfort
-                 + drop_hum_out
-                 + drop_hum_in
-                 + drop_outside
-                 + drop_trend %}
+                  + drop_extra
+                  + drop_pre
+                  + drop_comfort
+                  + drop_hum_out
+                  + drop_hum_in
+                  + drop_outside
+                  + drop_trend %}
 
 {% if is_day %}
   {% set applied = [daytime_min_drop, [total_drop, daytime_max_drop] | min] | max %}
@@ -82,34 +82,27 @@
   {% set target = clamped | round(0)          | int %}
 {% endif %}
 
-DEBUG:
+Values for AC:
  • indoor:             {{ indoor }} °C  
  • outside:            {{ outside }} °C  
  • ΔT out/min:         {{ dout_rate }} °C/min  
  • ΔRH out/min:        {{ dhum_out_rate }} %RH/min  
  • ΔRH in/min:         {{ dhum_in_rate }} %RH/min  
  • HI / Hx:            {{ HI }} °C / {{ Hx }} °C  
-
- • comfort_excess:     {{ comfort_excess }}  
+ • comfort_excess:     {{ comfort_excess }} °C  
  • drop_comfort:       {{ drop_comfort }} °C  
-
  • diff:               {{ diff }} °C  
  • drop_base:          {{ drop_base }} °C  
  • hot_diff:           {{ hot_diff }} °C  
  • drop_extra:         {{ drop_extra }} °C  
-
  • fc_diff:            {{ fc_diff }} °C  
  • drop_pre:           {{ drop_pre }} °C  
-
  • drop_hum_out:       {{ drop_hum_out }} °C  
  • drop_hum_in:        {{ drop_hum_in }} °C  
-
  • drop_outside:       {{ drop_outside }} °C  
  • drop_trend:         {{ drop_trend }} °C  
-
  • total_drop:         {{ total_drop }} °C  
  • applied_drop:       {{ applied }} °C  
-
  • raw_target:         {{ raw }} °C  
  • clamped:            {{ clamped }} °C  
  • final_target:       {{ target }} °C  
