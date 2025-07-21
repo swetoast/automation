@@ -14,7 +14,6 @@
 {% set outside_bonus_max = 2.0 %}
 {% set hysteresis_thresh = 0.2 %}
 
-
 {% set indoor        = states('sensor.comfort_zone_temperature')          | float(0) %}
 {% set outside       = state_attr('weather.home','temperature')           | float(0) %}
 {% set is_day        = states('sun.sun') == 'above_horizon'               %}
