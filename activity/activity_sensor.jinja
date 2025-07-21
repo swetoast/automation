@@ -51,7 +51,7 @@
 {% set bathroom_occ = is_state('binary_sensor.bathroom_occupancy_sensor', 'on') %}
 {% set bathroom_steam = is_state('binary_sensor.bathroom_moisture_sensor', 'on') %}
 {% set livingroom   = is_state('binary_sensor.presence_sensor', 'on') and ac_mode == 'off' %}
-{% set work_home    = (is_state('device_tracker.client_sec54684', 'home') and location == 'home' %}
+{% set work_home    = (is_state('device_tracker.client_sec54684', 'home')) and location == 'home' %}
 
 {% set bath_mot    = is_state('binary_sensor.bathroom_motion_sensor', 'on') 
                    or is_state('binary_sensor.bathroom_motion_sensor_unsecure', 'on') %}
