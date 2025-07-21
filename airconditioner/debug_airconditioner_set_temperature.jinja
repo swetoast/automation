@@ -1,18 +1,18 @@
 {% set hot_threshold     = 25.0 %}
-{% set S                 =  5.0 %}
-{% set M                 =  3.0 %}
-{% set daytime_min_drop  =  1.0 %}
-{% set daytime_max_drop  =  2.0 %}
-{% set night_min_drop    =  2.0 %}
-{% set night_max_drop    =  4.0 %}
-{% set pre_cool_max_drop =  2.0 %}
-{% set forecast_horizon  =    3 %}
+{% set S                 = 5.0 %}
+{% set M                 = 3.0 %}
+{% set daytime_min_drop  = 1.0 %}
+{% set daytime_max_drop  = 3.0 %}
+{% set night_min_drop    = 2.0 %}
+{% set night_max_drop    = 6.0 %}
+{% set pre_cool_max_drop = 2.0 %}
+{% set forecast_horizon  = 3 %}
 {% set comfort_thr       = 25.0 %}
-{% set comfort_factor    =  0.1 %}
-{% set hum_thr           =  5.0 %}
-{% set hum_drop          =  0.5 %}
-{% set outside_bonus_max =  2.0 %}
-{% set hysteresis_thresh =  0.2 %}
+{% set comfort_factor    = 0.1 %}
+{% set hum_thr           = 5.0 %}
+{% set hum_drop          = 0.5 %}
+{% set outside_bonus_max = 2.0 %}
+{% set hysteresis_thresh = 0.2 %}
 
 {% set indoor         = states('sensor.comfort_zone_temperature')             | float %}
 {% set outside        = state_attr('weather.home','temperature')              | float %}
@@ -83,6 +83,7 @@
 {% endif %}
 
 Values for AC:
+ • is_day              {{ is_day }}
  • indoor:             {{ indoor }} °C  
  • outside:            {{ outside }} °C  
  • ΔT out/min:         {{ dout_rate }} °C/min  
