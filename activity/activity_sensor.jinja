@@ -1,64 +1,201 @@
-{% set activity = states('sensor.pixel_8_pro_detected_activity') %}
-{% set phone_state = states('sensor.pixel_8_pro_phone_state') %}
-{% set location = states('person.toast') %}
-{% set interactive = states('binary_sensor.pixel_8_pro_interactive') %}
-{% set bedtime_mode = states('binary_sensor.google_pixel_watch_2_bedtime_mode') %}
-{% set tv_status = states('media_player.bedroom_tv') %}
-{% set music_status = states('media_player.plexamp_android_phone') %}
-{% set work_laptop_status = states('device_tracker.work_laptop') %}
+{% set sleep_confidence = states('sensor.pixel_8_pro_sleep_confidence') | int(default=0) %}
+{% set location         = states('person.toast') %}
+{% set phone_state      = states('sensor.pixel_8_pro_phone_state') %}
+{% set interactive      = is_state('binary_sensor.pixel_8_pro_interactive', 'on') %}
+{% set bedtime_mode     = is_state('binary_sensor.google_pixel_watch_2_bedtime_mode', 'on') %}
+{% set tv_on            = is_state('media_player.bedroom_tv', 'playing') %}
 
-{% set messages = [] %}
+{% set tv_title    = state_attr('media_player.bedroom_tv', 'media_title') %}
+{% set tv_artist   = state_attr('media_player.bedroom_tv', 'media_artist') %}
+{% set tv_app      = state_attr('media_player.bedroom_tv', 'app_name') %}
+{% set title_part  = tv_title or 'something on TV' %}
+{% set artist_part = tv_artist is not none and ' by ' ~ tv_artist or '' %}
+{% set app_part    = tv_app     is not none and ' via ' ~ tv_app     or '' %}
 
-{% if activity == 'running' %}
-  {% set messages = messages + ["You're out for a run."] %}
-{% elif activity == 'on_bicycle' %}
-  {% set messages = messages + ["Cycling around."] %}
-{% elif activity == 'still' %}
-  {% set messages = messages + ["Taking a break, staying still."] %}
-{% elif activity == 'in_vehicle' %}
-  {% set messages = messages + ["Traveling in a vehicle."] %}
-{% elif activity == 'on_foot' %}
-  {% set messages = messages + ["Moving on foot."] %}
-{% elif activity == 'walking' %}
-  {% set messages = messages + ["Out for a walk."] %}
-{% elif activity == 'tilting' %}
-  {% set messages = messages + ["Your device is tilting."] %}
+{% macro detect_media_player(base) -%}
+  {%- set candidates = states.media_player
+        | selectattr('entity_id', 'search', base)
+        | rejectattr('state', 'equalto', 'unavailable')
+        | list -%}
+  {%- set playing = candidates 
+        | selectattr('state', 'equalto', 'playing')
+        | list -%}
+  {%- if playing | length > 0 -%}
+    {{ playing[0].entity_id }}
+  {%- elif candidates | length > 0 -%}
+    {{ candidates[0].entity_id }}
+  {%- else -%}
+    {{ none }}
+  {%- endif -%}
+{%- endmacro %}
+
+{% set lr_player = detect_media_player('plex_plexamp_hideaway') %}
+{% set ph_player = detect_media_player('plexamp_android_phone') %}
+
+{% set lr_playing       = lr_player is not none and is_state(lr_player, 'playing') %}
+{% set lr_media_title   = lr_playing and state_attr(lr_player, 'media_title')   or none %}
+{% set lr_media_artist  = lr_playing and state_attr(lr_player, 'media_artist')  or none %}
+{% set lr_content_type  = lr_playing and state_attr(lr_player, 'media_content_type') or none %}
+
+{% set ph_playing       = ph_player is not none and is_state(ph_player, 'playing') %}
+{% set ph_media_title   = ph_playing and state_attr(ph_player, 'media_title')   or none %}
+{% set ph_media_artist  = ph_playing and state_attr(ph_player, 'media_artist')  or none %}
+{% set ph_content_type  = ph_playing and state_attr(ph_player, 'media_content_type') or none %}
+
+{% set gaming       = is_state('binary_sensor.gaming_sensor', 'on') %}
+{% set active_game  = state_attr('sensor.steam_76561198053891138', 'game') %}
+{% set fridge_open  = is_state('binary_sensor.fridge_door', 'on') %}
+{% set ac_mode      = states('climate.air_conditioner') %}
+{% set window_open  = is_state('binary_sensor.window_kitchen', 'on') %}
+{% set kitchen      = is_state('binary_sensor.kitchen_presence_sensor', 'on') and not window_open %}
+{% set bathroom_occ = is_state('binary_sensor.bathroom_occupancy_sensor', 'on') %}
+{% set bathroom_steam = is_state('binary_sensor.bathroom_moisture_sensor', 'on') %}
+{% set livingroom   = is_state('binary_sensor.presence_sensor', 'on') and ac_mode == 'off' %}
+{% set work_home    = (is_state('device_tracker.client_sec54684', 'home') or is_state('device_tracker.work_laptop', 'home')) and location == 'home' %}
+
+{% set bath_mot    = is_state('binary_sensor.bathroom_motion_sensor', 'on') 
+                   or is_state('binary_sensor.bathroom_motion_sensor_unsecure', 'on') %}
+{% set bath_lights = is_state('light.bathroom_lights_local', 'on')
+                   or is_state('light.bathroom_local_1', 'on')
+                   or is_state('light.bathroom_local_2', 'on') %}
+{% set hum         = states('sensor.temperature_humidity_bathroom_humidity') | float %}
+{% set hist        = states('sensor.bathroom_humidity_history')               | float %}
+{% set hum_delta   = hum - hist %}
+{% set fan_alert   = is_state('automation.notificaiton_bathroom_fan', 'on') %}
+{% set ts_now      = as_timestamp(now()) %}
+{% set ts_main     = as_timestamp(states.binary_sensor.bathroom_motion_sensor.last_changed) %}
+{% set ts_un       = as_timestamp(states.binary_sensor.bathroom_motion_sensor_unsecure.last_changed) %}
+{% set last_motion = [ts_main, ts_un] | max %}
+{% set idle_time   = ts_now - last_motion %}
+
+{% set room =
+  (work_home      and 'living room')
+  or (gaming       and 'living room')
+  or (kitchen      and 'kitchen')
+  or (bathroom_occ and 'bathroom')
+  or (livingroom   and 'living room')
+  or 'bedroom'
+%}
+
+{% set is_sleeping = bedtime_mode and sleep_confidence == 100 %}
+{% set is_in_bed   = bedtime_mode and sleep_confidence < 100 %}
+{% set showering   = room == 'bathroom' and bathroom_steam %}
+
+{% macro zone_activity(loc) -%}
+  {%- if loc == 'Stora Coop' -%}
+    you’re strolling the aisles at Stora Coop, picking up groceries for the week
+  {%- elif loc == "Iza & Alex House" -%}
+    you’re catching up and sharing laughs at Iza & Alex’s place
+  {%- elif loc == "Andreas & Frida's House" -%}
+    you’re visiting Andreas & Frida, enjoying some friendly company
+  {%- elif loc == "Per's House" -%}
+    you’re relaxing at Per’s house, soaking in good vibes
+  {%- elif loc == "Robert & Pernillas House" -%}
+    you’re over at Robert & Pernilla’s, swapping stories and snacks
+  {%- elif 'Bar' in loc -%}
+    you’re having a drink and unwinding at {{ loc }}
+  {%- elif loc == 'Work' -%}
+    you’re focused and busy at your job
+  {%- elif work_home -%}
+    you’re working from home, dialing into projects and meetings
+  {%- elif loc == 'home' -%}
+    you’re relaxing at home, taking a well-deserved breather
+  {%- elif loc.startswith('Bus: ') -%}
+    you’re commuting by bus toward {{ loc | replace('Bus: ', '') }}, eyes on the scenery
+  {%- elif loc == 'not_home' -%}
+    you’re out and about, exploring new surroundings
+  {%- else -%}
+    you’re out exploring and making the most of the day
+  {%- endif %}
+{%- endmacro %}
+
+{% macro place(loc, room, shower) -%}
+  {%- if loc == 'home' and room == 'bathroom' and shower -%}
+    taking a warm, refreshing shower
+  {%- elif loc == 'home' and room == 'bathroom' and not shower -%}
+    freshening up in the bathroom before the next adventure
+  {%- elif loc == 'home' -%}
+    spending time in the {{ room }}, getting comfortable
+  {%- elif loc == 'Work' -%}
+    on site at work, tackling your to-do list
+  {%- else -%}
+    out and about, seeing what’s next
+  {%- endif %}
+{%- endmacro %}
+
+{% set adverb_activities = [] %}
+
+{% if tv_on and room == 'bedroom' %}
+  {% set adverb_activities = adverb_activities + [
+    'watching ' ~ title_part ~ artist_part ~ app_part ~ ' in bed'
+  ] %}
 {% endif %}
 
+{% if gaming and room == 'living room' %}
+  {% set game_text = (active_game or 'a game') | title %}
+  {% set adverb_activities = adverb_activities + ['playing ' ~ game_text] %}
+{% endif %}
+
+{% if fridge_open and room == 'kitchen' %}
+  {% set adverb_activities = adverb_activities + ['snacking at the fridge'] %}
+{% endif %}
+
+{% if ph_playing %}
+  {% set title_part  = ph_media_title or 'music' %}
+  {% set artist_part = ph_media_artist is not none and ' by ' ~ ph_media_artist or '' %}
+  {% set adverb_activities = adverb_activities
+       + ['listening to ' ~ title_part ~ artist_part ~ ' on your phone'] %}
+{% endif %}
+
+{% if lr_playing and room == 'living room' %}
+  {% if lr_content_type == 'tv' %}
+    {% set adverb_activities = adverb_activities
+         + ['watching ' ~ (lr_media_title or 'TV') ~ ' in the living room'] %}
+  {% else %}
+    {% set title_part  = lr_media_title or 'music' %}
+    {% set artist_part = lr_media_artist  is not none and ' by ' ~ lr_media_artist or '' %}
+    {% set adverb_activities = adverb_activities
+         + ['listening to ' ~ title_part ~ artist_part ~ ' in the living room'] %}
+  {% endif %}
+{% endif %}
+
+{% if room == 'bathroom' %}
+  {% if hum_delta > 5 and fan_alert %}
+    {% set adverb_activities = adverb_activities + ['taking a warm, steamy shower'] %}
+  {% elif bath_lights and bath_mot %}
+    {% set adverb_activities = adverb_activities + ['using the sink or toilet'] %}
+  {% elif bathroom_occ and bath_lights and not bath_mot and idle_time > 120 %}
+    {% set adverb_activities = adverb_activities + ['idle in the bathroom (no motion for 2 min)'] %}
+  {% elif bathroom_occ %}
+    {% set adverb_activities = adverb_activities + ['present in the bathroom'] %}
+  {% endif %}
+{% endif %}
+
+{% set status_activities = [] %}
+{% if work_home %}
+  {% set status_activities = status_activities + ['doing work from home'] %}
+{% elif location == 'Work' %}
+  {% set status_activities = status_activities + ['working at the office'] %}
+{% endif %}
 {% if phone_state == 'offhook' %}
-  {% set messages = messages + ["On a call."] %}
+  {% set status_activities = status_activities + ['in a phone call'] %}
 {% elif phone_state == 'ringing' %}
-  {% set messages = messages + ["Phone is ringing."] %}
+  {% set status_activities = status_activities + ['phone is ringing'] %}
+{% endif %}
+{% if interactive %}
+  {% set status_activities = status_activities + ['interacting on your phone'] %}
+{% endif %}
+{% if is_in_bed and not is_sleeping %}
+  {% set status_activities = status_activities + ['winding down before sleep'] %}
 {% endif %}
 
-{% if location == 'home' %}
-  {% set messages = messages + ["Relaxing at home."] %}
-{% elif location == 'work' %}
-  {% set messages = messages + ["Busy at work."] %}
+{% set parts = [] %}
+{% set parts = parts + [ zone_activity(location) ~ ' and ' ~ place(location, room, showering) ] %}
+{% if adverb_activities %}
+  {% set parts = parts + [ adverb_activities | join('; ') ] %}
+{% endif %}
+{% if status_activities %}
+  {% set parts = parts + [ 'Meanwhile, you’re ' ~ (status_activities | join(' and ')) ] %}
 {% endif %}
 
-{% if interactive == 'on' %}
-  {% set messages = messages + ["Using your device."] %}
-{% endif %}
-
-{% if bedtime_mode == 'on' %}
-  {% set messages = messages + ["In bed. Sweet dreams!"] %}
-{% endif %}
-
-{% if tv_status == 'playing' %}
-  {% set messages = messages + ["Watching TV."] %}
-{% endif %}
-
-{% if music_status == 'playing' %}
-  {% set messages = messages + ["Listening to music."] %}
-{% endif %}
-
-{% if work_laptop_status == 'home' %}
-  {% set messages = messages + ["Working from home."] %}
-{% endif %}
-
-{% if messages | length > 0 %}
-  {{ messages | join(' ') }}
-{% else %}
-  No relevant data available.
-{% endif %}
+{{ parts | join('. ') | capitalize ~ '.' }}
