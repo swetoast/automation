@@ -194,7 +194,7 @@
 {% endif %}
 
 {% if fire_idx %}
-  {% set narrative = narrative + [ "The fire risk " ~ humanize_fire(fire_idx) ~ "." ] %}
+  {% set narrative = narrative + [ "Fire risk is " ~ humanize_fire(fire_idx) ~ " outside." ] %}
 {% endif %}
 
 {{ narrative | join(" ") }}
