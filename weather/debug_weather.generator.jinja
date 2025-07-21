@@ -1,0 +1,130 @@
+{% macro label_humidity(h) -%}
+  {%- if h < 30 -%}dry and crisp
+  {%- elif h < 60 -%}comfortable
+  {%- elif h < 80 -%}a bit humid
+  {%- else -%}very muggy{%- endif -%}
+{%- endmacro %}
+
+{% macro label_pressure(p) -%}
+  {%- if p < 1010 -%}unstable skies
+  {%- elif p < 1015 -%}moderate pressure
+  {%- else -%}stable high pressure{%- endif -%}
+{%- endmacro %}
+
+{% macro label_wind(s) -%}
+  {%- if s < 5 -%}a light breeze
+  {%- elif s < 15 -%}moderate wind
+  {%- else -%}strong gusts{%- endif -%}
+{%- endmacro %}
+
+{% set weather_labels = {
+  'clear-night':     'clear night',
+  'cloudy':          'cloudy',
+  'fog':             'foggy',
+  'hail':            'hail',
+  'lightning':       'lightning',
+  'lightning-rainy': 'thunderstorm',
+  'partlycloudy':    'partly cloudy',
+  'pouring':         'heavy rain',
+  'rainy':           'rainy',
+  'snowy':           'snowy',
+  'snowy-rainy':     'sleet',
+  'sunny':           'sunny',
+  'windy':           'windy',
+  'windy-variant':   'gusty'
+} %}
+{% macro humanize_cond(c) -%}
+  {{ weather_labels[c] if c in weather_labels else c | replace('_',' ') | replace('-',' ') }}
+{%- endmacro %}
+
+{% set fire_risk_labels = {
+  '1': 'very low',
+  '2': 'low',
+  '3': 'moderate',
+  '4': 'high',
+  '5': 'very high',
+  '5E':'extremely high'
+} %}
+{% macro humanize_fire(idx) -%}
+  {{ fire_risk_labels[idx|string] if (idx|string) in fire_risk_labels else 'unknown' }}
+{%- endmacro %}
+
+
+{# — Fetch All States & Attributes — #}
+{% set tod       = states('sensor.time_of_day') %}
+{% set season    = states('sensor.season') %}
+{% set cal_start = state_attr('calendar.calander','start_time') %}
+{% if cal_start and as_datetime(cal_start).date() == now().date() %}
+  {% set appt = state_attr('calendar.calander','message') %}
+{% else %}
+  {% set appt = None %}
+{% endif %}
+
+{% set weather   = states('sensor.combined_hourly_weather') %}
+{% set temp      = state_attr('sensor.combined_hourly_weather','temperature') %}
+{% set dew       = state_attr('sensor.combined_hourly_weather','dew_point') %}
+{% set hum       = state_attr('sensor.combined_hourly_weather','humidity') %}
+{% set cloud     = state_attr('sensor.combined_hourly_weather','cloud_coverage') %}
+{% set press     = state_attr('sensor.combined_hourly_weather','pressure') %}
+{% set wind_spd  = state_attr('sensor.combined_hourly_weather','wind_speed') %}
+{% set wind_dir  = state_attr('sensor.combined_hourly_weather','wind_bearing') %}
+{% set forecast  = state_attr('sensor.combined_hourly_weather','forecast') %}
+
+{% set thunder   = states('sensor.chance_of_thunder') %}
+{% set uv_index  = states('sensor.uv_index_sensor') %}
+
+{% set aurora_alert  = states('binary_sensor.aurora_visibility_alert') %}
+{% set aurora_chance = states('sensor.aurora_visibility_visibility') %}
+
+{% set fire_idx     = state_attr('sensor.brandrisk_ute','riskIndex') %}
+{% set dew_perc     = states('sensor.thermal_outside_comfort_dew_point_perception') %}
+{% set humidex_perc = states('sensor.thermal_outside_comfort_humidex_perception') %}
+
+{% if forecast and forecast|length > 1 %}
+  {% set next_cond = forecast[1].condition %}
+{% else %}
+  {% set next_cond = None %}
+{% endif %}
+
+Time of Day:                   {{ tod }}
+Season:                        {{ season }}
+Calendar start_time:           {{ cal_start }}
+Today's appointment:           {{ appt }}
+
+Weather (raw):                 {{ weather }}
+Weather (humanized):           {{ humanize_cond(weather) }}
+
+Next forecast condition (raw): {{ next_cond }}
+Next condition (humanized):    {{ humanize_cond(next_cond) }}
+
+Temperature:                   {{ temp }} °C
+Dew Point:                     {{ dew }} °C
+Humidity (%):                  {{ hum }} → {{ label_humidity(hum) }}
+Cloud Coverage (%):            {{ cloud }}
+Pressure (hPa):                {{ press }} → {{ label_pressure(press) }}
+Wind Speed (km/h):             {{ wind_spd }} → {{ label_wind(wind_spd) }}
+Wind Bearing (°):              {{ wind_dir }}
+
+Chance of Thunder:             {{ thunder }}
+UV Index:                      {{ uv_index }}
+
+Aurora Alert:                  {{ aurora_alert }}
+Aurora Visibility (%):         {{ aurora_chance }}
+
+Forest-fire risk index:        {{ fire_idx }} → {{ humanize_fire(fire_idx) }}
+
+Thermal comfort – Dew point:   {{ dew_perc }}
+Thermal comfort – Humidex:     {{ humidex_perc }}
+
+Pollen Levels:
+{% for plant in ['Alder','Birch','Grasses','Mugwort','Olive Tree','Ragweed'] %}
+  - {{ plant }} pollen: {{ state_attr('sensor.pollen_data', plant) }}
+{% endfor %}
+
+Forecast entries & attributes:
+{% for slot in forecast %}
+  Slot {{ loop.index }}:
+  {% for key, val in slot.items() %}
+    - {{ key }}: {{ val }}
+  {% endfor %}
+{% endfor %}
