@@ -6,10 +6,13 @@
   {%- endif -%}
 {%- endmacro %}
 
-{%- macro label_pressure(p) -%}
-  {%- if p < 1010 -%}unstable skies
-  {%- elif p < 1015 -%}moderate pressure
-  {%- else -%}stable high pressure
+{%- macro pressure_message(p) -%}
+  {%- if p <  980  -%}Intense storms
+  {%- elif p < 1000 -%}Unsettled rain & gusts
+  {%- elif p < 1010 -%}Showers possible
+  {%- elif p < 1020 -%}Mixed sun & clouds
+  {%- elif p < 1030 -%}Fair weather & light winds
+  {%- else          -%}Stable clear skies
   {%- endif -%}
 {%- endmacro %}
 
