@@ -1,130 +1,126 @@
-{% macro label_humidity(h) -%}
+{# === MACROS & LABELS === #}
+{%- macro label_humidity(h) -%}
   {%- if h < 30 -%}dry and crisp
   {%- elif h < 60 -%}comfortable
   {%- elif h < 80 -%}a bit humid
-  {%- else -%}very muggy{%- endif -%}
+  {%- else -%}very muggy
+  {%- endif -%}
 {%- endmacro %}
 
-{% macro label_pressure(p) -%}
-  {%- if p < 1010 -%}unstable skies
-  {%- elif p < 1015 -%}moderate pressure
-  {%- else -%}stable high pressure{%- endif -%}
-{%- endmacro %}
-
-{% macro label_wind(s) -%}
-  {%- if s < 5 -%}a light breeze
+{%- macro label_wind(s) -%}
+  {%- if s < 5 -%}light breeze
   {%- elif s < 15 -%}moderate wind
-  {%- else -%}strong gusts{%- endif -%}
+  {%- else -%}strong gusts
+  {%- endif -%}
 {%- endmacro %}
 
-{% set weather_labels = {
-  'clear-night':     'clear night',
-  'cloudy':          'cloudy',
-  'fog':             'foggy',
-  'hail':            'hail',
-  'lightning':       'lightning',
-  'lightning-rainy': 'thunderstorm',
-  'partlycloudy':    'partly cloudy',
-  'pouring':         'heavy rain',
-  'rainy':           'rainy',
-  'snowy':           'snowy',
-  'snowy-rainy':     'sleet',
-  'sunny':           'sunny',
-  'windy':           'windy',
-  'windy-variant':   'gusty'
-} %}
-{% macro humanize_cond(c) -%}
-  {{ weather_labels[c] if c in weather_labels else c | replace('_',' ') | replace('-',' ') }}
+{%- macro humanize_direction(deg) -%}
+  {%- set dirs = [
+    'north','north-northeast','northeast','east-northeast',
+    'east','east-southeast','southeast','south-southeast',
+    'south','south-southwest','southwest','west-southwest',
+    'west','west-northwest','northwest','north-northwest'
+  ] -%}
+  {{ dirs[((deg + 11.25)//22.5)|int % 16] }}
 {%- endmacro %}
 
-{% set fire_risk_labels = {
-  '1': 'very low',
-  '2': 'low',
-  '3': 'moderate',
-  '4': 'high',
-  '5': 'very high',
-  '5E':'extremely high'
-} %}
-{% macro humanize_fire(idx) -%}
-  {{ fire_risk_labels[idx|string] if (idx|string) in fire_risk_labels else 'unknown' }}
+{%- set weather_labels = {
+  'clear-night':'clear night','cloudy':'cloudy','fog':'foggy',
+  'hail':'hail','lightning':'lightning','lightning-rainy':'thunderstorm',
+  'partlycloudy':'partly cloudy','pouring':'heavy rain','rainy':'rainy',
+  'snowy':'snowy','snowy-rainy':'sleet','sunny':'sunny',
+  'windy':'windy','windy-variant':'gusty'
+} -%}
+{%- macro humanize_cond(c) -%}
+  {{ weather_labels[c] if c in weather_labels else c.replace('_',' ').replace('-',' ') }}
+{%- endmacro %}
+
+{%- macro pressure_message(season, p) -%}
+  {%- set s = season | lower -%}
+  {%- if p < 980 -%}Intense storms
+  {%- elif p < 1000 -%}Unsettled rain & gusts
+  {%- elif p < 1010 -%}Showers possible
+  {%- elif p < 1020 -%}Mixed sun & clouds
+  {%- elif p < 1030 -%}Fair weather & light winds
+  {%- else -%}Stable clear skies
+  {%- endif -%}
+{%- endmacro %}
+
+{%- macro frost_message(r) -%}
+  {%- if r == 'unlikely' -%}Frost unlikely
+  {%- elif r == 'probable' -%}Frost possible
+  {%- elif r == 'high' -%}High frost risk
+  {%- endif -%}
+{%- endmacro %}
+
+{%- set fire_labels = {
+  '1':'very low','2':'low','3':'moderate',
+  '4':'high','5':'very high','5E':'extreme'
+} -%}
+{%- macro humanize_fire(i) -%}
+  {{ fire_labels[i|string] if (i|string) in fire_labels else 'unknown' }}
 {%- endmacro %}
 
 
-{# — Fetch All States & Attributes — #}
-{% set tod       = states('sensor.time_of_day') %}
-{% set season    = states('sensor.season') %}
-{% set cal_start = state_attr('calendar.calander','start_time') %}
-{% if cal_start and as_datetime(cal_start).date() == now().date() %}
-  {% set appt = state_attr('calendar.calander','message') %}
-{% else %}
-  {% set appt = None %}
-{% endif %}
+{# === READ SENSORS & ATTRIBUTES === #}
+{%- set tod        = states('sensor.time_of_day')                   | capitalize -%}
+{%- set season     = states('sensor.season')                        | capitalize -%}
+{%- set weather    = states('sensor.combined_hourly_weather')                           -%}
+{%- set temp       = state_attr('sensor.combined_hourly_weather','temperature')         | round(1) -%}
+{%- set cloud      = state_attr('sensor.combined_hourly_weather','cloud_coverage')       | int     -%}
+{%- set press      = state_attr('sensor.combined_hourly_weather','pressure')             | int     -%}
+{%- set wind_spd   = state_attr('sensor.combined_hourly_weather','wind_speed')           | round(1) -%}
+{%- set wind_dir   = state_attr('sensor.combined_hourly_weather','wind_bearing')         | int     -%}
+{%- set forecast   = state_attr('sensor.combined_hourly_weather','forecast') or []       -%}
+{%- set frost_r    = states('sensor.thermal_outside_comfort_frost_risk')                 -%}
 
-{% set weather   = states('sensor.combined_hourly_weather') %}
-{% set temp      = state_attr('sensor.combined_hourly_weather','temperature') %}
-{% set dew       = state_attr('sensor.combined_hourly_weather','dew_point') %}
-{% set hum       = state_attr('sensor.combined_hourly_weather','humidity') %}
-{% set cloud     = state_attr('sensor.combined_hourly_weather','cloud_coverage') %}
-{% set press     = state_attr('sensor.combined_hourly_weather','pressure') %}
-{% set wind_spd  = state_attr('sensor.combined_hourly_weather','wind_speed') %}
-{% set wind_dir  = state_attr('sensor.combined_hourly_weather','wind_bearing') %}
-{% set forecast  = state_attr('sensor.combined_hourly_weather','forecast') %}
+{# === FORECAST DEBUG SETUP === #}
+{%- set forecast_horizon = 3 -%}
+{%- set peak = namespace(val=0.0) -%}
+{% for slot in forecast[:forecast_horizon] %}
+  {% if slot.temperature is defined and slot.temperature > peak.val %}
+    {% set peak.val = slot.temperature %}
+  {% endif %}
+{% endfor %}
+{%- set fc_diff  = peak.val - 25 if peak.val > 25 else 0 -%}
+{%- set drop_pre = fc_diff > 0 and (fc_diff * 2.0 / (fc_diff + 2.0)) or 0 -%}
 
-{% set thunder   = states('sensor.chance_of_thunder') %}
-{% set uv_index  = states('sensor.uv_index_sensor') %}
+{# === DEBUG OUTPUT === #}
+Time of day:            {{ tod }}
+Season:                 {{ season }}
+Weather:                {{ weather }} → {{ humanize_cond(weather) }}
+Temperature:            {{ temp }}°C
+Cloud cover:            {{ cloud }}%
+Pressure:               {{ press }} hPa → {{ pressure_message(season, press) }}
+Wind:                   {{ wind_spd }} km/h from {{ wind_dir }}° → {{ label_wind(wind_spd) }} {{ humanize_direction(wind_dir) }}
+Frost risk:             {{ frost_r }} → {{ frost_message(frost_r) }}
 
-{% set aurora_alert  = states('binary_sensor.aurora_visibility_alert') %}
-{% set aurora_chance = states('sensor.aurora_visibility_visibility') %}
-
-{% set fire_idx     = state_attr('sensor.brandrisk_ute','riskIndex') %}
-{% set dew_perc     = states('sensor.thermal_outside_comfort_dew_point_perception') %}
-{% set humidex_perc = states('sensor.thermal_outside_comfort_humidex_perception') %}
-
-{% if forecast and forecast|length > 1 %}
-  {% set next_cond = forecast[1].condition %}
-{% else %}
-  {% set next_cond = None %}
-{% endif %}
-
-Time of Day:                   {{ tod }}
-Season:                        {{ season }}
-Calendar start_time:           {{ cal_start }}
-Today's appointment:           {{ appt }}
-
-Weather (raw):                 {{ weather }}
-Weather (humanized):           {{ humanize_cond(weather) }}
-
-Next forecast condition (raw): {{ next_cond }}
-Next condition (humanized):    {{ humanize_cond(next_cond) }}
-
-Temperature:                   {{ temp }} °C
-Dew Point:                     {{ dew }} °C
-Humidity (%):                  {{ hum }} → {{ label_humidity(hum) }}
-Cloud Coverage (%):            {{ cloud }}
-Pressure (hPa):                {{ press }} → {{ label_pressure(press) }}
-Wind Speed (km/h):             {{ wind_spd }} → {{ label_wind(wind_spd) }}
-Wind Bearing (°):              {{ wind_dir }}
-
-Chance of Thunder:             {{ thunder }}
-UV Index:                      {{ uv_index }}
-
-Aurora Alert:                  {{ aurora_alert }}
-Aurora Visibility (%):         {{ aurora_chance }}
-
-Forest-fire risk index:        {{ fire_idx }} → {{ humanize_fire(fire_idx) }}
-
-Thermal comfort – Dew point:   {{ dew_perc }}
-Thermal comfort – Humidex:     {{ humidex_perc }}
-
-Pollen Levels:
-{% for plant in ['Alder','Birch','Grasses','Mugwort','Olive Tree','Ragweed'] %}
-  - {{ plant }} pollen: {{ state_attr('sensor.pollen_data', plant) }}
+Forecast slots (next {{ forecast_horizon }} hours):
+{% for slot in forecast[:forecast_horizon] %}
+  • Slot {{ loop.index }}  
+     - Time:        {{ slot.datetime }}  
+     - Temp:        {{ slot.temperature }}°C  
+     - Condition:   {{ slot.condition }} → {{ humanize_cond(slot.condition) }}  
+     - Precipitation: {{ slot.precipitation }} mm  
 {% endfor %}
 
-Forecast entries & attributes:
-{% for slot in forecast %}
-  Slot {{ loop.index }}:
-  {% for key, val in slot.items() %}
-    - {{ key }}: {{ val }}
+Peak forecast temp:       {{ peak.val }}°C  
+Pre-cool diff (peak–25):  {{ fc_diff }}°C  
+drop_pre (max 2.0):       {{ drop_pre }}°C  
+
+{# — identify all rainy slots after “now” —#}
+{%- set now_ts    = as_timestamp(now()) -%}
+{%- set precip_fx = forecast
+   | selectattr('precipitation','>',0)
+   | selectattr('datetime','>', now_ts 
+       | timestamp_custom('%Y-%m-%dT%H:%M:%S%z',false))
+   | list -%}
+
+Precipitation events:
+{% if precip_fx %}
+  {% for evt in precip_fx %}
+• time: {{ evt.datetime }} → {{ evt.precipitation }} mm  
   {% endfor %}
-{% endfor %}
+{% else %}
+• none
+{% endif %}
