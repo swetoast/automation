@@ -80,4 +80,43 @@
   {% endif %}
 {% endfor %}
 
-{{ decision.value }}
+Variables:
+  indoor:               {{ indoor }}
+  delta_hum:            {{ delta_hum }}
+  is_home:              {{ is_home }}
+  override_not_home:    {{ override_not_home }}
+  window_open:          {{ window_open }}
+  lightning:            {{ lightning }}
+  skip_price:           {{ skip_price }}
+  skip_comf:            {{ skip_comf }}
+  skip_light:           {{ skip_light }}
+  kill_all:             {{ kill_all }}
+  comfort_ok:           {{ comfort_ok }}
+
+Price Info:
+  price_now:            {{ price_now }}
+  price_avg:            {{ price_avg }}
+  price_peak:           {{ price_peak }}
+  off_peak:             {{ off_peak }}
+  price_throttle:       {{ price_throttle }}
+
+Predictive Cool:
+  peak_temperature:     {{ peak.val }}
+  drop_pre:             {{ drop_pre }}
+
+Hysteresis:
+  target_temp:          {{ target_temp }}
+  step:                 {{ step }}
+  up_thr:               {{ up_thr }}
+  dn_thr:               {{ dn_thr }}
+  prev_mode:            {{ prev_mode }}
+
+Emergency Overheat:
+  outlet_overheat:      {{ outlet_overheat }}
+
+Rule Evaluation:
+{% for cond, mode in rules %}
+  {{ loop.index }}. mode="{{ mode }}", condition={{ cond }}, passed={% if cond %}✅{% else %}❌{% endif %}
+{% endfor %}
+
+Selected Mode: {{ decision.value }}
