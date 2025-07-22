@@ -12,8 +12,10 @@
 {% set skip_light              = is_state('input_boolean.air_conditioner_override_lightning_safeguard','on') %}
 {% set kill_all                = is_state('input_boolean.airconditioner_override_all','on') %}
 
-{% set comfort_ok              = (states('sensor.thermal_comfort_humidex_perception_2') | lower == 'comfortable')
-                                and (states('sensor.thermal_comfort_thoms_discomfort_perception_2') | lower == 'no_discomfort') %}
+{% set comfort_ok              = 
+     (states('sensor.thermal_comfort_humidex_perception_2') | lower == 'comfortable')
+  and (states('sensor.thermal_comfort_thoms_discomfort_perception_2') | lower == 'no_discomfort')
+%}
 
 {% set price_now               = states('sensor.nord_pool_se3_next_price')         | float %}
 {% set price_avg               = states('sensor.nord_pool_se3_daily_average')      | float %}
@@ -21,9 +23,9 @@
 
 {% set ts                      = as_timestamp(now()) %}
 {% set is_op1                  = ts >= as_timestamp(states('sensor.nord_pool_se3_off_peak_1_time_from'))
-                                 and ts < as_timestamp(states('sensor.nord_pool_se3_off_peak_1_time_until')) %}
+                                 and ts <  as_timestamp(states('sensor.nord_pool_se3_off_peak_1_time_until')) %}
 {% set is_op2                  = ts >= as_timestamp(states('sensor.nord_pool_se3_off_peak_2_time_from'))
-                                 and ts < as_timestamp(states('sensor.nord_pool_se3_off_peak_2_time_until')) %}
+                                 and ts <  as_timestamp(states('sensor.nord_pool_se3_off_peak_2_time_until')) %}
 {% set off_peak                = is_op1 or is_op2 %}
 
 {% if skip_price %}
@@ -53,24 +55,24 @@
 {% set dn_thr                  = target_temp - step %}
 {% set prev_mode               = state_attr('climate.air_conditioner','hvac_mode')       %}
 
-{% set outlet_overheat         = is_state('binary_sensor.ac_outlet_overheated','on') %}
+{% set outlet_overloaded      = is_state('binary_sensor.ac_outlet_overloaded','on') %}
 
 {% set decision = namespace(value=(prev_mode or 'off')) %}
 
 {% set rules = [
-  (outlet_overheat,                                      'off'),
-  (kill_all,                                            'off'),
-  ((not is_home) and (not override_not_home),            'off'),
-  (lightning and not skip_light,                        'off'),
-  (not window_open,                                     'fan_only'),
-  (comfort_ok and not skip_comf,                         'off'),
-  (delta_hum > 5.0,                                     'dry'),
-  (price_throttle,                                      'fan_only'),
-  (drop_pre >= 1.0,                                     'cool'),
+  (outlet_overloaded,                                  'off'),
+  (kill_all,                                           'off'),
+  ((not is_home) and (not override_not_home),           'off'),
+  (lightning and not skip_light,                       'off'),
+  (not window_open,                                    'fan_only'),
+  (comfort_ok and not skip_comf,                        'off'),
+  (delta_hum > 5.0,                                    'dry'),
+  (price_throttle,                                     'fan_only'),
+  (drop_pre >= 1.0,                                    'cool'),
   (prev_mode == 'fan_only' and indoor >= up_thr,       'cool'),
   (prev_mode == 'cool'     and indoor <= dn_thr,       'fan_only'),
-  (indoor > up_thr,                                     'cool'),
-  (indoor < dn_thr,                                     'fan_only')
+  (indoor > up_thr,                                    'cool'),
+  (indoor < dn_thr,                                    'fan_only')
 ] %}
 
 {% for cond, mode in rules %}
@@ -111,8 +113,8 @@ Hysteresis:
   dn_thr:               {{ dn_thr }}
   prev_mode:            {{ prev_mode }}
 
-Emergency Overheat:
-  outlet_overheat:      {{ outlet_overheat }}
+Emergency Overload:
+  outlet_overloaded:    {{ outlet_overloaded }}
 
 Rule Evaluation:
 {% for cond, mode in rules %}
