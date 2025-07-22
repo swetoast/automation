@@ -62,10 +62,10 @@
 {% set rules = [
   (outlet_overloaded,                                  'off'),
   (kill_all,                                           'off'),
-  ((not is_home) and (not override_not_home),           'off'),
+  ((not is_home) and (not override_not_home),          'off'),
   (lightning and not skip_light,                       'off'),
   (not window_open,                                    'fan_only'),
-  (comfort_ok and not skip_comf,                        'off'),
+  (comfort_ok and not skip_comf,                       'off'),
   (delta_hum > 5.0,                                    'dry'),
   (price_throttle,                                     'fan_only'),
   (drop_pre >= 1.0,                                    'cool'),
