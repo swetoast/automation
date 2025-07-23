@@ -1,0 +1,162 @@
+{% set now = now().replace(second=0, microsecond=0) %}
+{% set season = states('sensor.season') %}
+{% set temp = states('sensor.average_outside_temperature') | float(0) %}
+{% set feels_like = states('sensor.outside_feels_like_temperature') | float(0) %}
+{% set humid = states('sensor.average_outside_humidity') | float(0) %}
+{% set dew_point = states('sensor.thermal_outside_comfort_dew_point') | float(0) %}
+{% set dew_desc = states('sensor.thermal_outside_comfort_dew_point_perception') | replace('_',' ') %}
+{% set abs_humidity = states('sensor.thermal_outside_comfort_absolute_humidity') | float(0) %}
+{% set heat_index = states('sensor.thermal_outside_comfort_heat_index') | float(0) %}
+{% set humidex = states('sensor.thermal_outside_comfort_humidex') | float(0) %}
+{% set humidex_desc = states('sensor.thermal_outside_comfort_humidex_perception') | replace('_',' ') %}
+{% set discomfort = states('sensor.thermal_outside_comfort_thoms_discomfort_perception') %}
+{% set strain_raw = states('sensor.thermal_outside_comfort_relative_strain_perception') %}
+{% set strain_desc = strain_raw | replace('_',' ') %}
+{% set enthalpy = states('sensor.thermal_outside_comfort_moist_air_enthalpy') | float(0) %}
+{% set scharlau_s = states('sensor.thermal_outside_comfort_summer_scharlau_perception') %}
+{% set simmer_index = states('sensor.thermal_outside_comfort_summer_simmer_index') | float(0) %}
+{% set simmer_desc = states('sensor.thermal_outside_comfort_summer_simmer_perception') | replace('_',' ') %}
+{% set forecast = state_attr('sensor.combined_hourly_weather','forecast') %}
+
+{# Aurora Sensors #}
+{% set aurora_visible = states('sensor.aurora_visibility_visibility') | float(0) %}
+{% set aurora_alert = is_state('binary_sensor.aurora_visibility_alert', 'on') %}
+
+{# ----------- Comfort Summary ----------- #}
+{% set summary = namespace(text='') %}
+{% if season == 'summer' %}
+  {% set summary.text = 'Summer has fully settled over Borås today  the air feels heavy and warm. ' %}
+{% elif season == 'spring' %}
+  {% set summary.text = 'Spring conditions bring shifting air and rising moisture across Borås. ' %}
+{% elif season == 'autumn' %}
+  {% set summary.text = 'Autumn’s cooler rhythm is gradually settling over Borås. ' %}
+{% elif season == 'winter' %}
+  {% set summary.text = 'Winter’s grip usually keeps Borås brisk, though today may vary. ' %}
+{% else %}
+  {% set summary.text = 'Seasonal status is unclear  interpreting current conditions directly. ' %}
+{% endif %}
+
+{% set summary.text = summary.text ~
+  'It currently feels like ' ~ feels_like | round(1) ~ '°C, slightly warmer than the actual ' ~ temp | round(1) ~ '°C. ' %}
+
+{% if humid >= 70 %}
+  {% set summary.text = summary.text ~
+    'Humidity is notably high at ' ~ humid | round(1) ~ '%, giving the air a moist and dense character. ' %}
+{% endif %}
+
+{% if dew_desc not in ['comfortable', 'very comfortable', 'dry'] %}
+  {% set summary.text = summary.text ~
+    'Dew point is ' ~ dew_point | round(1) ~ '°C, which is considered ' ~ dew_desc ~ '. ' %}
+{% endif %}
+
+{% if abs_humidity >= 15 %}
+  {% set summary.text = summary.text ~
+    'Absolute humidity is around ' ~ abs_humidity | round(1) ~ ' g/m³  a sign of rich moisture in the air. ' %}
+{% endif %}
+
+{% set summary.text = summary.text ~
+  'Thermal comfort readings paint a mixed picture. The heat index hovers at ' ~ heat_index | round(1) ~ '°C, suggesting a mild increase in perceived warmth. ' %}
+{% set summary.text = summary.text ~
+  'The Summer Scharlau index rates comfort as "' ~ scharlau_s | replace('_',' ') ~ '". ' %}
+
+{% if simmer_desc not in ['comfortable', 'cool', 'slightly cool'] %}
+  {% set summary.text = summary.text ~
+    'Simmer index is ' ~ simmer_index | round(1) ~ ', reflecting a "' ~ simmer_desc ~ '" sensation. ' %}
+{% endif %}
+
+{% if discomfort != 'no_discomfort' %}
+  {% set summary.text = summary.text ~
+    'Discomfort perception reports "' ~ discomfort | replace('_',' ') ~ '". ' %}
+{% endif %}
+
+{% if strain_raw != 'outside_calculable_range' %}
+  {% set summary.text = summary.text ~
+    'Thermal strain is assessed as "' ~ strain_desc ~ '". ' %}
+{% endif %}
+
+{% if enthalpy > 50 %}
+  {% set summary.text = summary.text ~
+    'Moist air carries a high energy load: ' ~ enthalpy | round(1) ~ ' kJ/kg, the kind that lets heat linger and ventilation matters. ' %}
+{% endif %}
+
+{# ----------- Forecast Narrative ----------- #}
+{% set rain_events = [] %}
+{% set wind_events = [] %}
+{% set temp_list = [] %}
+
+{% for entry in forecast %}
+  {% set t = entry.datetime | as_datetime %}
+  {% if t > now %}
+    {% if entry.precipitation | float > 0 %}
+      {% set rain_events = rain_events + [entry] %}
+    {% endif %}
+    {% if entry.wind_speed | float >= 15 %}
+      {% set wind_events = wind_events + [entry] %}
+    {% endif %}
+    {% set temp_list = temp_list + [entry.temperature | float] %}
+  {% endif %}
+{% endfor %}
+
+{% set forecast_text = namespace(text='') %}
+
+{# 🧯 Nothing happening fallback #}
+{% if rain_events | length == 0 and wind_events | length == 0 and temp_list | length < 2 %}
+  {% set forecast_text.text = 'Conditions are expected to remain stable overnight  no notable rain, wind, or temperature changes on the horizon. ' %}
+{% endif %}
+
+{# 🌧️ Rain Narrative #}
+{% if rain_events | length > 0 %}
+  {% set first = rain_events[0].datetime | as_datetime %}
+  {% set last = rain_events[-1].datetime | as_datetime %}
+  {% set start = first.strftime('%H:%M') %}
+  {% set end = last.strftime('%H:%M') %}
+  {% set total = rain_events | map(attribute='precipitation') | map('float') | sum %}
+
+  {% if total < 0.2 %}
+    {% set forecast_text.text = forecast_text.text ~
+      'A brief spell of light rain is expected after ' ~ start ~ ', with drizzle tapering off near ' ~ end ~ '. ' %}
+  {% elif total < 1 %}
+    {% set forecast_text.text = forecast_text.text ~
+      'Rain returns later this evening around ' ~ start ~ ', gradually building and continuing until ' ~ end ~ ', totaling about ' ~ total | round(2) ~ ' mm. ' %}
+  {% else %}
+    {% set forecast_text.text = forecast_text.text ~
+      'A longer stretch of rainfall begins near ' ~ start ~ ', continuing through ' ~ end ~ ' with accumulations possibly reaching ' ~ total | round(1) ~ ' mm. ' %}
+  {% endif %}
+{% endif %}
+
+{# 💨 Wind Narrative #}
+{% if wind_events | length > 0 %}
+  {% set peak = wind_events | map(attribute='wind_speed') | map('float') | max %}
+  {% set wind_time = wind_events[0].datetime | as_datetime %}
+  {% set wind_hour = wind_time.strftime('%H:%M') %}
+  {% set forecast_text.text = forecast_text.text ~
+    'Winds may strengthen later on, picking up near ' ~ wind_hour ~ ' and reaching up to ' ~ peak | round(1) ~ ' km/h. ' %}
+{% endif %}
+
+{# 🌡️ Temperature Trend #}
+{% if temp_list | length > 1 %}
+  {% set delta = temp_list[-1] - temp_list[0] %}
+  {% if delta >= 1.5 %}
+    {% set forecast_text.text = forecast_text.text ~ 'Temperatures are expected to rise gently over the next few hours. ' %}
+  {% elif delta <= -1.5 %}
+    {% set forecast_text.text = forecast_text.text ~ 'Temperatures will dip gradually through the night, hinting at a cooler start tomorrow. ' %}
+  {% endif %}
+{% endif %}
+
+{# ✨ Combine Forecast into Summary #}
+{% if forecast_text.text %}
+  {% set summary.text = summary.text ~
+    'As the evening unfolds, conditions will shift. ' ~ forecast_text.text ~
+    'No further sharp changes are currently forecast  a warm, humid night lies ahead. ' %}
+{% endif %}
+
+{# 🌌 Aurora Integration #}
+{% if aurora_visible > 0 %}
+  {% set summary.text = summary.text ~
+    'Skies permitting, keep an eye northward  aurora visibility tonight is at ' ~ aurora_visible | round(0) ~ '%. ' %}
+  {% if aurora_alert %}
+    {% set summary.text = summary.text ~
+      'An active aurora visibility alert is in effect, which means a glimpse of northern lights may very well be possible. ' %}
+  {% endif %}
+{% endif %}
+{{ summary.text }}
