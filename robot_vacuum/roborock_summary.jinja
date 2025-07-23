@@ -1,0 +1,102 @@
+{% set summary    = namespace(text='') %}
+
+{% set state       = states('vacuum.roborock_s8_pro_ultra') %}
+{% set area        = (states('sensor.roborock_s8_pro_ultra_cleaning_area') | float(0)) | round(1) %}
+{% set progress    = states('sensor.roborock_s8_pro_ultra_cleaning_progress')   | int(0) %}
+{% set time_s      = states('sensor.roborock_s8_pro_ultra_cleaning_time')       | int(0) %}
+{% set time_min    = (time_s / 60)                                              | round(0) %}
+{% set battery     = states('sensor.roborock_s8_pro_ultra_battery')             | int(0) %}
+{% set mop_drying  = is_state('binary_sensor.roborock_s8_pro_ultra_mop_drying','on') %}
+{% set water_low   = is_state('binary_sensor.roborock_s8_pro_ultra_water_shortage','on') %}
+{% set vac_error   = states('sensor.roborock_s8_pro_ultra_vacuum_error') %}
+{% set dock_error  = states('sensor.roborock_s8_pro_ultra_dock_error') %}
+
+{% set last_iso    = states('sensor.roborock_s8_pro_ultra_last_clean_end') %}
+{% if last_iso not in ['unknown','unavailable'] %}
+  {% set last_dt     = last_iso | as_datetime %}
+  {% set now_ts      = now() | as_timestamp %}
+  {% set last_ts     = last_dt  | as_timestamp %}
+  {% set delta_s     = (now_ts - last_ts) | int %}
+  {% set delta_min   = (delta_s / 60) | int %}
+  {% set delta_h     = (delta_min / 60) | int %}
+  {% set delta_d     = (delta_h / 24) | int %}
+  {% if delta_d > 0 %}
+    {% set last_run = delta_d ~ ' day' ~ (delta_d>1 and 's' or '') ~ ' ago' %}
+  {% elif delta_h > 0 %}
+    {% set last_run = delta_h ~ ' hour' ~ (delta_h>1 and 's' or '') ~ ' ago' %}
+  {% else %}
+    {% set last_run = delta_min ~ ' minute' ~ (delta_min>1 and 's' or '') ~ ' ago' %}
+  {% endif %}
+{% endif %}
+
+{% set runs        = states('sensor.roborock_s8_pro_ultra_total_cleaning_count') | int %}
+{% set lifetime_m2 = states('sensor.roborock_s8_pro_ultra_total_cleaning_area')  | float %}
+{% set life_h      = (states('sensor.roborock_s8_pro_ultra_total_cleaning_time') | int / 3600) | round(1) %}
+{% if lifetime_m2 >= 10000 %}
+  {% set life_area = (lifetime_m2 / 1000000) | round(3) ~ ' km²' %}
+{% else %}
+  {% set life_area = lifetime_m2 | round(1) ~ ' m²' %}
+{% endif %}
+
+{% if state == 'cleaning' %}
+  {% set speed_map  = {'quiet':'gentle','balanced':'steady','turbo':'powerful','max':'maximum'} %}
+  {% set fan        = state_attr('vacuum.roborock_s8_pro_ultra','fan_speed') %}
+  {% set speed_desc = (speed_map.get(fan) or fan) ~ ' suction' %}
+  {% set summary.text = 
+       'It’s vacuuming now with ' ~ speed_desc
+       ~ ', covering ' ~ area ~ ' m² (' ~ progress ~ '%) in ' ~ time_min ~ ' minutes.' %}
+  {% if is_state('binary_sensor.roborock_s8_pro_ultra_mop_attached','on') %}
+    {% set mode_map   = {'standard':'standard','deep':'deep clean','fast':'quick'} %}
+    {% set inten_map  = {'mild':'light','moderate':'medium','intense':'deep'} %}
+    {% set mode_desc  = mode_map.get(states('select.roborock_s8_pro_ultra_mop_mode')) %}
+    {% set int_desc   = inten_map.get(states('select.roborock_s8_pro_ultra_mop_intensity')) %}
+    {% set summary.text = summary.text 
+         ~ ' It’s also mopping in ' ~ mode_desc ~ ' mode at ' ~ int_desc ~ ' intensity.' %}
+  {% endif %}
+  {% if water_low %}    {% set summary.text = summary.text ~ ' Heads up: water tank is low.' %}    {% endif %}
+  {% if vac_error!='none' %} 
+    {% set summary.text = summary.text 
+         ~ ' Error encountered: ' ~ vac_error | replace('_',' ') ~ '.' %}
+  {% endif %}
+
+{% elif state in ['docked','charging'] %}
+  {% set action = state=='charging' and 'Charging' or 'Docked' %}
+  {% set summary.text = action ~ ' at the dock, battery at ' ~ battery ~ '%.' %}
+  {% if mop_drying %}  {% set summary.text = summary.text ~ ' The mop head is drying.' %} {% endif %}
+  {% if water_low %}   {% set summary.text = summary.text ~ ' The water tank is low.' %} {% endif %}
+  {% if dock_error!='ok' %} 
+    {% set summary.text = summary.text 
+         ~ ' Dock error: ' ~ dock_error | replace('_',' ') ~ '.' %}
+  {% endif %}
+  {% if last_run %}
+    {% set summary.text = summary.text 
+         ~ ' Last cleaned ' ~ last_run 
+         ~ ', covering ' ~ area ~ ' m² in ' ~ time_min ~ ' minutes.' %}
+  {% endif %}
+  {% set summary.text = summary.text 
+       ~ ' So far it’s done ' ~ runs ~ ' runs, covered ' 
+       ~ life_area ~ ' and logged ' ~ life_h ~ ' hours of cleaning.' %}
+
+  {% set now_time = now().strftime('%H:%M:%S') %}
+  {% set off_start = states('time.roborock_s8_pro_ultra_off_peak_start') %}
+  {% set off_end   = states('time.roborock_s8_pro_ultra_off_peak_end') %}
+
+  {% if off_start not in ['unknown','unavailable'] and off_end not in ['unknown','unavailable'] %}
+    {% if now_time >= off_start and now_time <= off_end %}
+      {% set summary.text = summary.text ~ ' Charging during the off-peak period.' %}
+    {% elif state == 'docked' and now_time < off_start %}
+  {% set formatted_start = off_start[:5] %}
+  {% set summary.text = summary.text ~ ' Waiting for off-peak period to start at ' ~ formatted_start ~ '.' %}
+
+    {% endif %}
+  {% endif %}
+
+{% else %}
+  {% set summary.text = 'Roborock is ' ~ state | replace('_',' ') ~ '.' %}
+  {% if vac_error!='none' %}
+    {% set summary.text = summary.text 
+         ~ ' Error: ' ~ vac_error | replace('_',' ') ~ '.' %}
+  {% endif %}
+{% endif %}
+
+{{ summary.text }}
