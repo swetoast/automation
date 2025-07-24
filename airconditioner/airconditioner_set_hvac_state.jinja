@@ -1,29 +1,40 @@
-{% set indoor                = states('sensor.comfort_zone_temperature') | float %}
-{% set delta_hum             = states('sensor.average_humidity_tracker') | float %}
-{% set forecast              = state_attr('sensor.combined_hourly_weather','forecast') or [] %}
-
-{% set is_home               = is_state('person.toast','home') %}
-{% set override_not_home     = is_state('input_boolean.toggle_override_not_at_home','on') %}
-{% set window_open           = is_state('binary_sensor.living_room_window_sensor','on') %}
-{% set lightning             = is_state('binary_sensor.lightning_monitor','on') %}
-
-{% set skip_price            = is_state('input_boolean.override_price_guard','on') %}
-{% set skip_comf             = is_state('input_boolean.air_conditioner_override_comformt','on') %}
-{% set skip_light            = is_state('input_boolean.air_conditioner_override_lightning_safeguard','on') %}
-{% set kill_all              = is_state('input_boolean.airconditioner_override_all','on') %}
+{% set indoor               = states('sensor.comfort_zone_temperature')       | float %}
+{% set delta_hum            = states('sensor.average_humidity_tracker')      | float %}
+{% set forecast             = state_attr('sensor.combined_hourly_weather','forecast') or [] %}
+{% set is_home              = is_state('person.toast','home') %}
+{% set override_not_home    = is_state('input_boolean.toggle_override_not_at_home','on') %}
+{% set window_open          = is_state('binary_sensor.living_room_window_sensor','on') %}
+{% set lightning            = is_state('binary_sensor.lightning_monitor','on') %}
+{% set skip_price           = is_state('input_boolean.override_price_guard','on') %}
+{% set skip_comf            = is_state('input_boolean.air_conditioner_override_comformt','on') %}
+{% set skip_light           = is_state('input_boolean.air_conditioner_override_lightning_safeguard','on') %}
+{% set kill_all             = is_state('input_boolean.airconditioner_override_all','on') %}
 
 {% set comfort_ok = (
-  (states('sensor.thermal_comfort_humidex_perception_2') | lower) == 'comfortable' and
+  (states('sensor.thermal_comfort_humidex_perception_2') | lower)     == 'comfortable' and
   (states('sensor.thermal_comfort_thoms_discomfort_perception_2') | lower) == 'no_discomfort'
 ) %}
 
-{% set price_throttle = (not skip_price) and (not is_state('binary_sensor.price_throttle', 'on')) %}
-{% set severity = state_attr('binary_sensor.price_throttle','severity_scale') %}
+{% set now_hour       = now().hour %}
+{% set off_start_str  = state_attr('binary_sensor.price_throttle','cheapest_offpeak_start') or '22:00' %}
+{% set off_end_str    = state_attr('binary_sensor.price_throttle','cheapest_offpeak_end')   or '06:00' %}
+{% set off_start      = off_start_str[:2] | int %}
+{% set off_end        = off_end_str[:2]   | int %}
+{% set raw_price      = state_attr('binary_sensor.price_throttle','current_price') or '0' %}
+{% set current_price  = raw_price.split()[0] | float %}
+{% set threshold      = states('input_number.price_guard_threshold')               | float %}
+{% set severity       = state_attr('binary_sensor.price_throttle','severity_scale') %}
 
-{% set horizon = 3 %}
-{% set thr_hot = 25.0 %}
-{% set max_pre = 2.0 %}
-{% set peak = namespace(val=0.0) %}
+{% set is_offpeak = (
+  (off_start < off_end and now_hour >= off_start and now_hour < off_end) or
+  (off_start > off_end and (now_hour >= off_start or now_hour < off_end))
+) %}
+
+{% set price_ok = skip_price or is_offpeak or (current_price < threshold) or (severity != 'extreme') %}
+{% set horizon  = 3 %}
+{% set thr_hot  = 25.0 %}
+{% set max_pre  = 2.0 %}
+{% set peak     = namespace(val=0.0) %}
 
 {% for e in forecast[:horizon] %}
   {% if e.temperature is defined and e.temperature > peak.val %}
@@ -33,39 +44,34 @@
 
 {% set diff_f   = peak.val > thr_hot and (peak.val - thr_hot) or 0 %}
 {% set drop_pre = diff_f > 0 and (diff_f * max_pre / (diff_f + max_pre)) or 0 %}
-
-{% set target_temp = state_attr('climate.air_conditioner','temperature') | float %}
-{% set step        = state_attr('climate.air_conditioner','target_temp_step') | float %}
-{% set up_thr      = target_temp + step %}
-{% set dn_thr      = target_temp - step %}
-{% set prev_mode   = state_attr('climate.air_conditioner','hvac_mode') %}
-
-{% set outlet_overloaded = is_state('binary_sensor.ac_outlet_overloaded','on') %}
-
-{% set decision = namespace(value=(prev_mode or 'off')) %}
+{% set target_temp       = state_attr('climate.air_conditioner','temperature')     | float %}
+{% set step              = state_attr('climate.air_conditioner','target_temp_step') | float %}
+{% set up_thr            = target_temp + step %}
+{% set dn_thr            = target_temp - step %}
+{% set prev_mode         = state_attr('climate.air_conditioner','hvac_mode')       %}
+{% set outlet_overloaded = is_state('binary_sensor.ac_outlet_overloaded','on')    %}
+{% set decision          = namespace(value=(prev_mode or 'off')) %}
 
 {% set rules = [
-  (outlet_overloaded,                                  'off'),
-  (kill_all,                                           'off'),
-  ((not is_home) and (not override_not_home),          'off'),
-  (lightning and not skip_light,                       'off'),
-  (not window_open,                                    'fan_only'),
-  (comfort_ok and not skip_comf,                       'off'),
-  (delta_hum > 5.0,                                    'dry'),
-  (drop_pre >= 1.0,                                    'cool'),
-  (indoor > up_thr,                                    'cool'),
-  (prev_mode == 'fan_only' and indoor >= up_thr,       'cool'),
-  (prev_mode == 'cool'     and indoor <= dn_thr,       'fan_only'),
-  (indoor < dn_thr,                                    'fan_only'),
-  (price_throttle and severity == 'extreme',           'off'),
-  (price_throttle and severity != 'extreme',           'fan_only')
+  (outlet_overloaded,                        'off'),
+  (kill_all,                                 'off'),
+  ((not is_home) and (not override_not_home),'off'),
+  (lightning and not skip_light,             'off'),
+  (not window_open,                          'fan_only'),
+  (comfort_ok and not skip_comf,             'off'),
+  (severity == 'extreme',                    'off'),
+  (severity == 'high',                       'fan_only'),
+  (delta_hum > 5.0,                          'dry'),
+  (drop_pre >= 1.0,                          'cool'),
+  (indoor > up_thr,                          'cool'),
+  (prev_mode == 'fan_only' and indoor >= up_thr,'cool'),
+  (prev_mode == 'cool'   and indoor <= dn_thr,  'fan_only'),
+  (indoor < dn_thr,                          'fan_only')
 ] %}
 
 {% for cond, mode in rules %}
   {% if cond %}
-    {% set decision.value = mode %}
-    {% break %}
-  {% endif %}
+    {% set decision.value = mode %}{% break %}{% endif %}
 {% endfor %}
 
 {{ decision.value }}
