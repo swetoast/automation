@@ -7,7 +7,7 @@
 {% set window_open             = is_state('binary_sensor.living_room_window_sensor','on') %}
 {% set lightning               = is_state('binary_sensor.lightning_monitor','on') %}
 
-{% set skip_price              = is_state('input_boolean.air_conditioner_override_price_toggle','on') %}
+{% set skip_price              = is_state('input_boolean.override_price_guard','on') %}
 {% set skip_comf               = is_state('input_boolean.air_conditioner_override_comformt','on') %}
 {% set skip_light              = is_state('input_boolean.air_conditioner_override_lightning_safeguard','on') %}
 {% set kill_all                = is_state('input_boolean.airconditioner_override_all','on') %}
