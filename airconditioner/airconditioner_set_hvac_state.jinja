@@ -1,5 +1,5 @@
-{% set indoor                = states('sensor.comfort_zone_temperature')                   | float %}
-{% set delta_hum             = states('sensor.average_humidity_tracker')                   | float %}
+{% set indoor                = states('sensor.comfort_zone_temperature') | float %}
+{% set delta_hum             = states('sensor.average_humidity_tracker') | float %}
 {% set forecast              = state_attr('sensor.combined_hourly_weather','forecast') or [] %}
 
 {% set is_home               = is_state('person.toast','home') %}
@@ -7,38 +7,23 @@
 {% set window_open           = is_state('binary_sensor.living_room_window_sensor','on') %}
 {% set lightning             = is_state('binary_sensor.lightning_monitor','on') %}
 
-{% set skip_price            = is_state('input_boolean.air_conditioner_override_price_toggle','on') %}
+{% set skip_price            = is_state('input_boolean.override_price_guard','on') %}
 {% set skip_comf             = is_state('input_boolean.air_conditioner_override_comformt','on') %}
 {% set skip_light            = is_state('input_boolean.air_conditioner_override_lightning_safeguard','on') %}
 {% set kill_all              = is_state('input_boolean.airconditioner_override_all','on') %}
 
-{% set comfort_ok            = (
-                              (states('sensor.thermal_comfort_humidex_perception_2') | lower) == 'comfortable'
-                            and (states('sensor.thermal_comfort_thoms_discomfort_perception_2') | lower) == 'no_discomfort'
-                          ) %}
+{% set comfort_ok = (
+  (states('sensor.thermal_comfort_humidex_perception_2') | lower) == 'comfortable' and
+  (states('sensor.thermal_comfort_thoms_discomfort_perception_2') | lower) == 'no_discomfort'
+) %}
 
-{% set price_now             = states('sensor.nord_pool_se3_next_price')         | float %}
-{% set price_avg             = states('sensor.nord_pool_se3_daily_average')      | float %}
-{% set price_peak            = states('sensor.nord_pool_se3_peak_highest_price') | float %}
+{% set price_throttle = (not skip_price) and (not is_state('binary_sensor.price_throttle', 'on')) %}
+{% set severity = state_attr('binary_sensor.price_throttle','severity_scale') %}
 
-{% set ts                    = as_timestamp(now()) %}
-{% set is_op1                = ts >= as_timestamp(states('sensor.nord_pool_se3_off_peak_1_time_from'))
-                              and ts <  as_timestamp(states('sensor.nord_pool_se3_off_peak_1_time_until')) %}
-{% set is_op2                = ts >= as_timestamp(states('sensor.nord_pool_se3_off_peak_2_time_from'))
-                              and ts <  as_timestamp(states('sensor.nord_pool_se3_off_peak_2_time_until')) %}
-{% set off_peak              = is_op1 or is_op2 %}
-
-{% if skip_price %}
-  {% set price_throttle = false %}
-{% else %}
-  {% set price_throttle = (price_now >= price_peak)
-                          or (price_now > price_avg and not off_peak) %}
-{% endif %}
-
-{% set horizon               = 3 %}
-{% set thr_hot               = 25.0 %}
-{% set max_pre               = 2.0 %}
-{% set peak                  = namespace(val=0.0) %}
+{% set horizon = 3 %}
+{% set thr_hot = 25.0 %}
+{% set max_pre = 2.0 %}
+{% set peak = namespace(val=0.0) %}
 
 {% for e in forecast[:horizon] %}
   {% if e.temperature is defined and e.temperature > peak.val %}
@@ -46,16 +31,16 @@
   {% endif %}
 {% endfor %}
 
-{% set diff_f                = peak.val > thr_hot and (peak.val - thr_hot) or 0 %}
-{% set drop_pre              = diff_f > 0 and (diff_f * max_pre / (diff_f + max_pre)) or 0 %}
+{% set diff_f   = peak.val > thr_hot and (peak.val - thr_hot) or 0 %}
+{% set drop_pre = diff_f > 0 and (diff_f * max_pre / (diff_f + max_pre)) or 0 %}
 
-{% set target_temp           = state_attr('climate.air_conditioner','temperature')     | float %}
-{% set step                  = state_attr('climate.air_conditioner','target_temp_step') | float %}
-{% set up_thr                = target_temp + step %}
-{% set dn_thr                = target_temp - step %}
-{% set prev_mode             = state_attr('climate.air_conditioner','hvac_mode')       %}
+{% set target_temp = state_attr('climate.air_conditioner','temperature') | float %}
+{% set step        = state_attr('climate.air_conditioner','target_temp_step') | float %}
+{% set up_thr      = target_temp + step %}
+{% set dn_thr      = target_temp - step %}
+{% set prev_mode   = state_attr('climate.air_conditioner','hvac_mode') %}
 
-{% set outlet_overloaded     = is_state('binary_sensor.ac_outlet_overloaded','on') %}
+{% set outlet_overloaded = is_state('binary_sensor.ac_outlet_overloaded','on') %}
 
 {% set decision = namespace(value=(prev_mode or 'off')) %}
 
@@ -67,12 +52,13 @@
   (not window_open,                                    'fan_only'),
   (comfort_ok and not skip_comf,                       'off'),
   (delta_hum > 5.0,                                    'dry'),
-  (price_throttle,                                     'fan_only'),
   (drop_pre >= 1.0,                                    'cool'),
+  (indoor > up_thr,                                    'cool'),
   (prev_mode == 'fan_only' and indoor >= up_thr,       'cool'),
   (prev_mode == 'cool'     and indoor <= dn_thr,       'fan_only'),
-  (indoor > up_thr,                                    'cool'),
-  (indoor < dn_thr,                                    'fan_only')
+  (indoor < dn_thr,                                    'fan_only'),
+  (price_throttle and severity == 'extreme',           'off'),
+  (price_throttle and severity != 'extreme',           'fan_only')
 ] %}
 
 {% for cond, mode in rules %}
