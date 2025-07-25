@@ -1,55 +1,47 @@
-{% set raw_json                        = states('input_text.store_lightning_monitor') | default('{}') %}
-{% set lightning_data                  = raw_json | from_json(default={}) %}
+{% set payload       = states('input_text.store_lightning_monitor') | default('{}') %}
+{% set data          = payload | from_json(default={}) %}
 
-{% set timestamp_now                   = as_timestamp(now()) %}
-{% set timestamp_of_strike             = lightning_data.get('timestamp', 0) | int %}
-{% set age_in_seconds                  = (timestamp_now - timestamp_of_strike) | int(0) %}
-{% set distance_in_kilometers          = lightning_data.get('distance', 0) | float(0) %}
-{% set strike_count                    = lightning_data.get('count',    0) | int(0) %}
+{% set now_ts        = as_timestamp(now()) %}
+{% set strike_ts     = data.get('timestamp', 0) | int %}
+{% set age           = (now_ts - strike_ts) | int %}
 
-{% set weak_strike_threshold           =  50 %}
-{% set moderate_strike_threshold       = 150 %}
-{% set strong_strike_threshold         = 300 %}
+{% set distance_km   = data.get('distance', 0) | float %}
+{% set strikes       = data.get('count', 0) | int %}
 
-{% if strike_count >= strong_strike_threshold %}
-  {% set storm_intensity = 'strong' %}
-{% elif strike_count >= moderate_strike_threshold %}
-  {% set storm_intensity = 'moderate' %}
-{% else %}
-  {% set storm_intensity = 'weak' %}
-{% endif %}
+{% set weak_thr      =  50    %}
+{% set strong_thr    = 300    %}
+{% set i_norm        = ((strikes - weak_thr) / (strong_thr - weak_thr)) | float %}
+{% if i_norm < 0 %} {% set i_norm = 0 %} {% endif %}
+{% if i_norm > 1 %} {% set i_norm = 1 %} {% endif %}
 
-{% set max_age_for_weak_storm_seconds      =  300 %}
-{% set max_age_for_mod_storm_seconds       =  900 %}
-{% set max_age_for_strong_storm_seconds    = 1800 %}
+{% set weak_win      = 300    %}
+{% set strong_win    = 1800   %}
+{% set window        = weak_win   + i_norm * (strong_win   - weak_win)   %}
 
-{% set max_dist_for_weak_storm_km          =  10.0 %}
-{% set max_dist_for_mod_storm_km           =  25.0 %}
-{% set max_dist_for_strong_storm_km        =  50.0 %}
+{% set weak_rad      = 10.0   %}
+{% set strong_rad    = 50.0   %}
+{% set radius        = weak_rad   + i_norm * (strong_rad   - weak_rad)   %}
 
-{% set lightning_is_active = false %}
-{% if storm_intensity == 'strong' and age_in_seconds <= max_age_for_strong_storm_seconds and distance_in_kilometers <= max_dist_for_strong_storm_km %}
-  {% set lightning_is_active = true %}
-{% elif storm_intensity == 'moderate' and age_in_seconds <= max_age_for_mod_storm_seconds and distance_in_kilometers <= max_dist_for_mod_storm_km %}
-  {% set lightning_is_active = true %}
-{% elif storm_intensity == 'weak' and age_in_seconds <= max_age_for_weak_storm_seconds and distance_in_kilometers <= max_dist_for_weak_storm_km %}
-  {% set lightning_is_active = true %}
-{% endif %}
+{% set d_norm        = distance_km / radius %}
+{% if d_norm > 1 %} {% set d_norm = 1 %} {% endif %}
 
-raw_json: {{ raw_json }}
-timestamp_now: {{ timestamp_now }}
-timestamp_of_strike: {{ timestamp_of_strike }}
-age_in_seconds: {{ age_in_seconds }}
-distance_in_kilometers: {{ distance_in_kilometers }}
-strike_count: {{ strike_count }}
-weak_strike_threshold: {{ weak_strike_threshold }}
-moderate_strike_threshold: {{ moderate_strike_threshold }}
-strong_strike_threshold: {{ strong_strike_threshold }}
-storm_intensity: {{ storm_intensity }}
-max_age_for_weak_storm_seconds: {{ max_age_for_weak_storm_seconds }}
-max_age_for_mod_storm_seconds: {{ max_age_for_mod_storm_seconds }}
-max_age_for_strong_storm_seconds: {{ max_age_for_strong_storm_seconds }}
-max_dist_for_weak_storm_km: {{ max_dist_for_weak_storm_km }}
-max_dist_for_mod_storm_km: {{ max_dist_for_mod_storm_km }}
-max_dist_for_strong_storm_km: {{ max_dist_for_strong_storm_km }}
-lightning_is_active: {{ lightning_is_active }}
+{% set exp_low       =  4.0   %}
+{% set exp_high      =  0.7   %}
+{% set exponent      = exp_low - i_norm * (exp_low - exp_high) %}
+
+{% set fade_factor   = (1 - d_norm) ** exponent %}
+
+{% set timeout       = window * fade_factor %}
+{% set active        = age <= timeout %}
+
+
+active: {{ active }}
+age: {{ age }}s
+distance: {{ distance_km }}km
+strikes: {{ strikes }}
+intensity_norm: {{ i_norm | round(2) }}
+window: {{ window | round(1) }}s
+radius: {{ radius | round(1) }}km
+exponent: {{ exponent | round(2) }}
+fade_factor: {{ fade_factor | round(3) }}
+timeout: {{ timeout | round(1) }}s
