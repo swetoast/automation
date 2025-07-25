@@ -35,13 +35,5 @@
 {% set active        = age <= timeout %}
 
 
-active: {{ active }}
-age: {{ age }}s
-distance: {{ distance_km }}km
-strikes: {{ strikes }}
-intensity_norm: {{ i_norm | round(2) }}
-window: {{ window | round(1) }}s
-radius: {{ radius | round(1) }}km
-exponent: {{ exponent | round(2) }}
-fade_factor: {{ fade_factor | round(3) }}
-timeout: {{ timeout | round(1) }}s
+{{ active }}
+
