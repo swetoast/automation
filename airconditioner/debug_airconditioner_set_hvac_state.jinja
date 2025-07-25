@@ -13,8 +13,7 @@
   {'key': 'window_bed_door',   'entity': 'binary_sensor.window_sensor_bedroom_door'},
   {'key': 'lightning',         'entity': 'binary_sensor.lightning_monitor'},
   {'key': 'outlet_overloaded', 'entity': 'binary_sensor.ac_outlet_overloaded'},
-  {'key': 'price_throttle',    'entity': 'binary_sensor.price_throttle'},
-  {'key': 'motion_living',     'entity': 'binary_sensor.motion_living_room'}
+  {'key': 'price_throttle',    'entity': 'binary_sensor.price_throttle'}
 ] %}
 
 {% set override_list = [
@@ -24,6 +23,7 @@
   {'key': 'ov_light',    'entity': 'input_boolean.air_conditioner_override_lightning_safeguard'},
   {'key': 'ov_comf',     'entity': 'input_boolean.air_conditioner_override_comformt'}
 ] %}
+
 
 {% set ns = namespace(values={}) %}
 {% for item in sensor_list %}
@@ -98,7 +98,6 @@
 
   { 'name': 'Window open & occupied → fan_only',
     'passed': (
-      (ns.values.window_open and ns.values.motion_living) or
       (ns.values.window_bed_door and ns.values.home_state)
     ),
     'mode':   'fan_only' }
