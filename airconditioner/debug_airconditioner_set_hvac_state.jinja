@@ -1,10 +1,6 @@
 {% set hum_low_thr  = 0.30 %}
 {% set hum_high_thr = 0.60 %}
 
-{% set dn_thr   = 21.0 %}
-{% set up_thr   = 23.0 %}
-{% set severity = 'moderate' %}
-
 {% set sensor_list = [
   {'key':'hum',           'entity':'sensor.average_humidity_tracker',    'default':0.0},
   {'key':'comfort_temp',  'entity':'sensor.comfort_zone_temperature',    'default':20.0},
@@ -47,12 +43,11 @@
 {% endfor %}
 
 {% set ns.values = ns.values | combine({
-  'up_thr':     up_thr,
-  'dn_thr':     dn_thr,
-  'severity':   severity,
-  'home_state': is_state('person.toast','home'),
-  'forecast':   state_attr('sensor.combined_hourly_weather','forecast') | default([]),
-  'prev_mode':  states('climate.air_conditioner')
+  'severity':    state_attr('binary_sensor.price_throttle','severity_scale') | default('moderate'),
+  'home_state':  is_state('person.toast','home'),
+  'forecast':    state_attr('sensor.combined_hourly_weather','forecast') | default([]),
+  'prev_mode':   states('climate.air_conditioner'),
+  'thoms_state': states('sensor.thermal_comfort_thoms_discomfort_perception')
 }) %}
 
 {% set ac_modes = ['off','dry','cool','fan_only'] %}
@@ -62,22 +57,22 @@
   {
     'name':'Global override → off',
     'passed': ns.values.ov_all,
-    'mode':   'off'
+    'mode':'off'
   },
   {
     'name':'Not home & no override → off',
     'passed': (not ns.values.home_state and not ns.values.ov_not_home),
-    'mode':   'off'
+    'mode':'off'
   },
   {
     'name':'Lightning safeguard → off',
     'passed': (ns.values.lightning and not ns.values.ov_light),
-    'mode':   'off'
+    'mode':'off'
   },
   {
     'name':'Outlet overloaded → off',
     'passed': (ns.values.outlet_overloaded and not ns.values.ov_comf),
-    'mode':   'off'
+    'mode':'off'
   },
   {
     'name':'Window open & occupied → fan_only',
@@ -86,23 +81,21 @@
       or
       (ns.values.window_bed_door and ns.values.home_state)
     ),
-    'mode': 'fan_only'
+    'mode':'fan_only'
   }
 ] %}
 
 {% set humidex_state = states('sensor.thermal_comfort_humidex_perception_2') %}
-
 {% if humidex_state in ['noticable_discomfort','evident_discomfort','great_discomfort'] %}
   {% set overwrite_mode = 'dry' %}
 {% elif humidex_state in ['dangerous_discomfort','heat_stroke'] %}
   {% set overwrite_mode = 'cool' %}
 {% endif %}
-
 {% if overwrite_mode %}
   {% set rules = [{
-    'name':   'Humidex override → ' ~ overwrite_mode,
+    'name':'Humidex override → ' ~ overwrite_mode,
     'passed': true,
-    'mode':   overwrite_mode
+    'mode': overwrite_mode
   }] + rules %}
 {% endif %}
 
@@ -110,46 +103,45 @@
   {
     'name':'Price extreme → off',
     'passed': (
-      ns.values.price_throttle
-      and ns.values.current_price > ns.values.price_thr
-      and ns.values.severity in ['extreme','critical']
-      and not ns.values.ov_price
+      ns.values.price_throttle and
+      ns.values.current_price > ns.values.price_thr and
+      ns.values.severity == 'extreme' and
+      not ns.values.ov_price
     ),
     'mode':'off'
   },
   {
-    'name':'High price non-extreme → fan_only',
+    'name':'Price high → fan_only',
     'passed': (
-      ns.values.price_throttle
-      and ns.values.current_price > ns.values.price_thr
-      and ns.values.severity not in ['extreme','critical']
-      and not ns.values.ov_price
+      ns.values.price_throttle and
+      ns.values.current_price > ns.values.price_thr and
+      ns.values.severity == 'high' and
+      not ns.values.ov_price
     ),
     'mode':'fan_only'
+  }
+] %}
+
+{% set rules = rules + [
+  {
+    'name':'THOMS indicates heat → cool',
+    'passed': "'hot' in ns.values.thoms_state",
+    'mode':'cool'
+  },
+  {
+    'name':'THOMS indicates cold → off',
+    'passed': ns.values.thoms_state in ['cold','very_cold','slightly_uncomfortable_cold'],
+    'mode':'off'
   },
   {
     'name':'Too dry → off',
-    'passed': (
-      ns.values.hum < hum_low_thr
-      and ns.values.comfort_temp >= ns.values.dn_thr
-      and ns.values.comfort_temp <= ns.values.up_thr
-    ),
+    'passed': ns.values.hum < hum_low_thr
+              and "'hot' not in ns.values.thoms_state",
     'mode':'off'
-  },
-  {
-    'name':'Too cold → off',
-    'passed': ns.values.comfort_temp < ns.values.dn_thr,
-    'mode':'off'
-  },
-  {
-    'name':'Too hot → cool',
-    'passed': ns.values.comfort_temp > ns.values.up_thr,
-    'mode':'cool'
   }
 ] %}
 
 {% set passed = rules | selectattr('passed') | list %}
-
 {% if passed | length > 0 %}
   {% set fired = passed[0] %}
 {% else %}
@@ -166,6 +158,8 @@
 
 Final AC Mode: {{ mode }}
 Reason: {{ fired.name }}
+
+THOMS raw state: {{ ns.values.thoms_state }}
 
 Rules evaluation:
 {% for rule in rules %}
