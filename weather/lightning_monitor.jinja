@@ -1,0 +1,39 @@
+{% set raw_json                        = states('input_text.store_lightning_monitor') | default('{}') %}
+{% set lightning_data                  = raw_json | from_json(default={}) %}
+
+{% set timestamp_now                   = as_timestamp(now()) %}
+{% set timestamp_of_strike             = lightning_data.get('timestamp', 0) | int %}
+{% set age_in_seconds                  = (timestamp_now - timestamp_of_strike) | int(0) %}
+{% set distance_in_kilometers          = lightning_data.get('distance', 0) | float(0) %}
+{% set strike_count                    = lightning_data.get('count',    0) | int(0) %}
+
+{% set weak_strike_threshold           =  50 %}
+{% set moderate_strike_threshold       = 150 %}
+{% set strong_strike_threshold         = 300 %}
+
+{% if strike_count >= strong_strike_threshold %}
+  {% set storm_intensity = 'strong' %}
+{% elif strike_count >= moderate_strike_threshold %}
+  {% set storm_intensity = 'moderate' %}
+{% else %}
+  {% set storm_intensity = 'weak' %}
+{% endif %}
+
+{% set max_age_for_weak_storm_seconds      =  300 %}
+{% set max_age_for_mod_storm_seconds       =  900 %}
+{% set max_age_for_strong_storm_seconds    = 1800 %}
+
+{% set max_dist_for_weak_storm_km          =  10.0 %}
+{% set max_dist_for_mod_storm_km           =  25.0 %}
+{% set max_dist_for_strong_storm_km        =  50.0 %}
+
+{% set lightning_is_active = false %}
+{% if storm_intensity == 'strong' and age_in_seconds <= max_age_for_strong_storm_seconds and distance_in_kilometers <= max_dist_for_strong_storm_km %}
+  {% set lightning_is_active = true %}
+{% elif storm_intensity == 'moderate' and age_in_seconds <= max_age_for_mod_storm_seconds and distance_in_kilometers <= max_dist_for_mod_storm_km %}
+  {% set lightning_is_active = true %}
+{% elif storm_intensity == 'weak' and age_in_seconds <= max_age_for_weak_storm_seconds and distance_in_kilometers <= max_dist_for_weak_storm_km %}
+  {% set lightning_is_active = true %}
+{% endif %}
+
+{{ lightning_is_active }}
