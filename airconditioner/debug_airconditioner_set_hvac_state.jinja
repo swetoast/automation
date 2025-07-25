@@ -31,22 +31,18 @@
 
 {% set ns = namespace(values={}) %}
 
-{# gather numeric sensors #}
 {% for item in sensor_list %}
   {% set ns.values = ns.values | combine({ (item.key): states(item.entity) | float(item.default) }) %}
 {% endfor %}
 
-{# gather on/off flags #}
 {% for item in flag_list %}
   {% set ns.values = ns.values | combine({ (item.key): is_state(item.entity, 'on') }) %}
 {% endfor %}
 
-{# gather override toggles #}
 {% for item in override_list %}
   {% set ns.values = ns.values | combine({ (item.key): is_state(item.entity, 'on') }) %}
 {% endfor %}
 
-{# add derived/contextual values #}
 {% set ns.values = ns.values | combine({
   'up_thr':        up_thr,
   'dn_thr':        dn_thr,
@@ -60,8 +56,8 @@
 {% set ac_modes = ['off','dry','cool','fan_only'] %}
 
 {% set rules = [
-  {'name': 'Global override → off',      'passed': ns.values.ov_all,                                                          'mode': 'off'},
-  {'name': 'Not home & no override → off','passed': (not ns.values.home_state and not ns.values.ov_not_home),               'mode': 'off'},
+  {'name': 'Global override → off',       'passed': ns.values.ov_all,                                                         'mode': 'off'},
+  {'name': 'Not home & no override → off','passed': (not ns.values.home_state and not ns.values.ov_not_home),                 'mode': 'off'},
   {'name': 'Lightning safeguard → off',   'passed': (ns.values.lightning and not ns.values.ov_light),                         'mode': 'off'},
   {'name': 'Outlet overloaded → off',     'passed': (ns.values.outlet_overloaded and not ns.values.ov_comf),                  'mode': 'off'},
   {
