@@ -1,11 +1,11 @@
-{% set hum_low_thr  = 0.30 %}
+{% set hum_low_thr = 0.30 %}
 {% set hum_high_thr = 0.60 %}
 
 {% set sensor_list = [
-  {'key':'hum',           'entity':'sensor.average_humidity_tracker',    'default':0.0},
-  {'key':'comfort_temp',  'entity':'sensor.comfort_zone_temperature',    'default':20.0},
-  {'key':'current_price', 'entity':'sensor.current_price',               'default':0.0},
-  {'key':'price_thr',     'entity':'input_number.price_guard_threshold', 'default':0.0}
+  {'key':'hum',           'entity':'sensor.average_humidity_tracker'},
+  {'key':'comfort_temp',  'entity':'sensor.comfort_zone_temperature'},
+  {'key':'current_price', 'entity':'sensor.current_price_incl_vat'},
+  {'key':'price_thr',     'entity':'input_number.price_guard_threshold'}
 ] %}
 
 {% set flag_list = [
@@ -28,21 +28,24 @@
 {% set ns = namespace(values={}) %}
 
 {% for item in sensor_list %}
-  {% set ns.values = ns.values | combine({ (item.key): states(item.entity) | float(item.default) }) %}
+  {% set ns.values = ns.values 
+     | combine({ (item.key): states(item.entity) | float }) %}
 {% endfor %}
 
 {% for item in flag_list %}
-  {% set ns.values = ns.values | combine({ (item.key): is_state(item.entity, 'on') }) %}
+  {% set ns.values = ns.values 
+     | combine({ (item.key): is_state(item.entity, 'on') }) %}
 {% endfor %}
 
 {% for item in override_list %}
-  {% set ns.values = ns.values | combine({ (item.key): is_state(item.entity, 'on') }) %}
+  {% set ns.values = ns.values 
+     | combine({ (item.key): is_state(item.entity, 'on') }) %}
 {% endfor %}
 
 {% set ns.values = ns.values | combine({
-  'severity':    state_attr('binary_sensor.price_throttle', 'severity_scale') | default('moderate'),
+  'severity':    state_attr('binary_sensor.price_throttle', 'severity_scale'),
   'home_state':  is_state('person.toast', 'home'),
-  'forecast':    state_attr('sensor.combined_hourly_weather', 'forecast') | default([]),
+  'forecast':    state_attr('sensor.combined_hourly_weather', 'forecast'),
   'prev_mode':   states('climate.air_conditioner'),
   'thoms_state': states('sensor.thermal_comfort_thoms_discomfort_perception')
 }) %}
@@ -58,34 +61,28 @@
 {% set ac_modes = ['off','dry','cool','fan_only'] %}
 
 {% set rules = [
-  {
-    'name':'Global override → off',
+  { 'name':'Global override → off',
     'passed': ns.values.ov_all,
-    'mode':'off'
-  },
-  {
-    'name':'Not home & no override → off',
+    'mode':'off' },
+
+  { 'name':'Not home & no override → off',
     'passed': (not ns.values.home_state and not ns.values.ov_not_home),
-    'mode':'off'
-  },
-  {
-    'name':'Lightning safeguard → off',
+    'mode':'off' },
+
+  { 'name':'Lightning safeguard → off',
     'passed': (ns.values.lightning and not ns.values.ov_light),
-    'mode':'off'
-  },
-  {
-    'name':'Outlet overloaded → off',
+    'mode':'off' },
+
+  { 'name':'Outlet overloaded → off',
     'passed': (ns.values.outlet_overloaded and not ns.values.ov_comf),
-    'mode':'off'
-  },
-  {
-    'name':'Window open & occupied → fan_only',
+    'mode':'off' },
+
+  { 'name':'Window open & occupied → fan_only',
     'passed': (
       (ns.values.window_open and ns.values.motion_living) or
       (ns.values.window_bed_door and ns.values.home_state)
     ),
-    'mode':'fan_only'
-  }
+    'mode':'fan_only' }
 ] %}
 
 {% if overwrite_mode %}
@@ -97,58 +94,46 @@
 {% endif %}
 
 {% set rules = rules + [
-  {
-    'name':'Price extreme → off',
+  { 'name':'Price extreme → off',
     'passed': (
       ns.values.price_throttle and
       ns.values.current_price > ns.values.price_thr and
       ns.values.severity == 'extreme' and
       not ns.values.ov_price
     ),
-    'mode':'off'
-  },
-  {
-    'name':'Price high → fan_only',
+    'mode':'off' },
+
+  { 'name':'Price high → fan_only',
     'passed': (
       ns.values.price_throttle and
       ns.values.current_price > ns.values.price_thr and
       ns.values.severity == 'high' and
       not ns.values.ov_price
     ),
-    'mode':'fan_only'
-  }
+    'mode':'fan_only' }
 ] %}
 
 {% set rules = rules + [
-  {
-    'name':'THOMS indicates heat → cool',
+  { 'name':'THOMS indicates heat → cool',
     'passed': "'hot' in ns.values.thoms_state",
-    'mode':'cool'
-  },
-  {
-    'name':'THOMS indicates cold → off',
+    'mode':'cool' },
+
+  { 'name':'THOMS indicates cold → off',
     'passed': ns.values.thoms_state in ['cold','very_cold','slightly_uncomfortable_cold'],
-    'mode':'off'
-  }
+    'mode':'off' }
 ] %}
 
 {% set rules = rules + [
-  {
-    'name':'Too dry → off',
-    'passed': ns.values.hum < hum_low_thr
-              and "'hot' not in ns.values.thoms_state",
-    'mode':'off'
-  }
+  { 'name':'Too dry → off',
+    'passed': ns.values.hum < hum_low_thr and "'hot' not in ns.values.thoms_state",
+    'mode':'off' }
 ] %}
 
 {% set passed = rules | selectattr('passed') | list %}
 {% if passed | length > 0 %}
   {% set fired = passed[0] %}
 {% else %}
-  {% set fired = {
-    'name':'Maintain previous mode',
-    'mode': ns.values.prev_mode
-  } %}
+  {% set fired = { 'name':'Maintain previous mode', 'mode': ns.values.prev_mode } %}
 {% endif %}
 
 {% set mode = fired.mode %}
