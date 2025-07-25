@@ -27,25 +27,21 @@
 
 {% set ns = namespace(values={}) %}
 
-{#— Load numeric sensors —#}
 {% for item in sensor_list %}
   {% set ns.values = ns.values
      | combine({ (item['key']): states(item['entity']) | float }) %}
 {% endfor %}
 
-{#— Load binary flags —#}
 {% for item in flag_list %}
   {% set ns.values = ns.values
      | combine({ (item['key']): is_state(item['entity'],'on') }) %}
 {% endfor %}
 
-{#— Load override toggles —#}
 {% for item in override_list %}
   {% set ns.values = ns.values
      | combine({ (item['key']): is_state(item['entity'],'on') }) %}
 {% endfor %}
 
-{#— Extras: severity, home state, forecast, prev_mode, THOMS raw state —#}
 {% set ns.values = ns.values | combine({
   'severity':    state_attr('binary_sensor.price_throttle','severity_scale'),
   'home_state':  is_state('person.toast','home'),
@@ -54,7 +50,6 @@
   'thoms_state': states('sensor.thermal_comfort_thoms_discomfort_perception')
 }) %}
 
-{#— Optional Humidex override —#}
 {% set humidex_state = states('sensor.thermal_comfort_humidex_perception_2') %}
 {% set overwrite_mode = none %}
 {% if humidex_state in [
@@ -70,7 +65,6 @@
   {% set overwrite_mode = 'cool' %}
 {% endif %}
 
-{#— Dynamic THOMS mapping —#}
 {% set thoms_options = [
   'no_discomfort',
   'less_than_half',
@@ -89,7 +83,6 @@
 
 {% set ac_modes = ['off','dry','cool','fan_only'] %}
 
-{#— Rule definitions in priority order —#}
 {% set rules = [
   { 'name': 'Global override → off',
     'passed': ns.values.ov_all,
@@ -115,7 +108,6 @@
     'mode':   'fan_only' }
 ] %}
 
-{#— Inject Humidex override at top if active —#}
 {% if overwrite_mode %}
   {% set rules = rules + [{
     'name':   'Humidex override → ' ~ overwrite_mode,
@@ -124,7 +116,6 @@
   }] %}
 {% endif %}
 
-{#— Price throttle rules —#}
 {% set rules = rules + [
   { 'name': 'Price extreme → off',
     'passed': (
@@ -145,21 +136,18 @@
     'mode':   'fan_only' }
 ] %}
 
-{#— Dryness override —#}
 {% set rules = rules + [
   { 'name': 'Too dry → off',
     'passed': ns.values.hum < hum_low_thr and thoms_idx > 0,
     'mode':   'off' }
 ] %}
 
-{#— Final THOMS-based fallback —#}
 {% set rules = rules + [
   { 'name': 'THOMS mapping → ' ~ base_mode,
     'passed': true,
     'mode':   base_mode }
 ] %}
 
-{#— Select first passed rule or fallback to prev_mode —#}
 {% set passed = rules | selectattr('passed') | list %}
 {% if passed | length > 0 %}
   {% set fired = passed[0] %}
