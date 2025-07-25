@@ -1,0 +1,54 @@
+{% set raw = states
+   | selectattr('entity_id','match','^geo_location\\.lightning_strike_')
+   | list %}
+{% set uniq = raw
+   | unique(attribute='attributes.external_id')
+   | list %}
+
+{% set distances = uniq
+   | map(attribute='state')
+   | map('float')
+   | sort
+   | list %}
+{% set closest = distances[0] if distances else 999 %}
+
+{% set stamps = uniq
+   | map(attribute='attributes.publication_date')
+   | map('as_timestamp')
+   | list %}
+{% set latest_ts = stamps|max if stamps else 0 %}
+{% set age_seconds = (as_timestamp(now()) - latest_ts)|int if stamps else 99999 %}
+
+{% set ns = namespace(cluster_max=0) %}
+{% for d in distances %}
+  {% set size = distances
+       | select('>=', d - 5)
+       | select('<=', d + 5)
+       | list
+       | length %}
+  {% if size > ns.cluster_max %}
+    {% set ns.cluster_max = size %}
+  {% endif %}
+{% endfor %}
+
+{% set rules = [
+  {'level':'weak',     'min_cluster': 1,  'max_dist': 50, 'max_age':1800},
+  {'level':'moderate', 'min_cluster': 4,  'max_dist': 30, 'max_age':1200},
+  {'level':'strong',   'min_cluster': 8,  'max_dist': 10, 'max_age': 600}
+] %}
+
+{% set ns.level = 'none' %}
+{% for r in rules %}
+  {% if ns.cluster_max >= r.min_cluster
+        and closest <= r.max_dist
+        and age_seconds <= r.max_age %}
+    {% set ns.level = r.level %}
+  {% endif %}
+{% endfor %}
+
+
+cluster_max: {{ ns.cluster_max }}
+closest: {{ closest }}
+age_seconds: {{ age_seconds }}
+final: {{ ns.level != 'none' }}
+level: {{ ns.level }}
