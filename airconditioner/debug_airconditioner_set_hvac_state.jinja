@@ -25,64 +25,65 @@
   {'key': 'ov_comf',     'entity': 'input_boolean.air_conditioner_override_comformt'}
 ] %}
 
+{#–– Gather all values ––#}
 {% set ns = namespace(values={}) %}
-
 {% for item in sensor_list %}
-  {% set ns.values = ns.values
+  {% set ns.values = ns.values 
      | combine({ (item['key']): states(item['entity']) | float }) %}
 {% endfor %}
-
 {% for item in flag_list %}
-  {% set ns.values = ns.values
-     | combine({ (item['key']): is_state(item['entity'],'on') }) %}
+  {% set ns.values = ns.values 
+     | combine({ (item['key']): is_state(item['entity'], 'on') }) %}
 {% endfor %}
-
 {% for item in override_list %}
-  {% set ns.values = ns.values
-     | combine({ (item['key']): is_state(item['entity'],'on') }) %}
+  {% set ns.values = ns.values 
+     | combine({ (item['key']): is_state(item['entity'], 'on') }) %}
 {% endfor %}
-
 {% set ns.values = ns.values | combine({
   'severity':    state_attr('binary_sensor.price_throttle','severity_scale'),
   'home_state':  is_state('person.toast','home'),
   'forecast':    state_attr('sensor.combined_hourly_weather','forecast'),
   'prev_mode':   states('climate.air_conditioner'),
-  'thoms_state': states('sensor.thermal_comfort_thoms_discomfort_perception')
+  'thoms_state': states('sensor.thermal_comfort_thoms_discomfort_perception_2')
 }) %}
 
+{#–– Optional Humidex override ––#}
 {% set humidex_state = states('sensor.thermal_comfort_humidex_perception_2') %}
 {% set overwrite_mode = none %}
 {% if humidex_state in [
-     'noticable_discomfort',
-     'evident_discomfort',
-     'great_discomfort'
+     'noticable_discomfort','evident_discomfort','great_discomfort'
    ] %}
   {% set overwrite_mode = 'dry' %}
 {% elif humidex_state in [
-     'dangerous_discomfort',
-     'heat_stroke'
+     'dangerous_discomfort','heat_stroke'
    ] %}
   {% set overwrite_mode = 'cool' %}
 {% endif %}
 
-{% set thoms_options = [
-  'no_discomfort',
-  'less_than_half',
-  'more_than_half',
-  'most',
-  'everyone',
-  'dangerous'
-] %}
+{#–– Direct THOMS → mode mapping ––#}
 {% set thoms_state = ns.values.thoms_state %}
-{% set thoms_idx   = thoms_state in thoms_options
-    and thoms_options.index(thoms_state)
-    or 0 %}
-{% set base_mode = thoms_idx == 0 and 'off'
-                 or thoms_idx == 1 and 'fan_only'
-                 or 'cool' %}
+{% set thoms_mode  = none %}
+{% if thoms_state == 'no_discomfort' %}
+  {% set thoms_mode = 'off' %}
+{% elif thoms_state in [
+     'less_than_half','more_than_half','most','everyone','dangerous'
+   ] %}
+  {% set thoms_mode = 'cool' %}
+{% endif %}
+
+{#–– Compute THOMS index for “Too dry” granularity ––#}
+{% set thoms_options = [
+  'no_discomfort','less_than_half','more_than_half','most','everyone','dangerous'
+] %}
+{% if thoms_state in thoms_options %}
+  {% set thoms_idx = thoms_options.index(thoms_state) %}
+{% else %}
+  {% set thoms_idx = 0 %}
+{% endif %}
 
 {% set ac_modes = ['off','dry','cool','fan_only'] %}
 
+{#–– Rule list in priority order ––#}
 {% set rules = [
   { 'name': 'Global override → off',
     'passed': ns.values.ov_all,
@@ -108,6 +109,7 @@
     'mode':   'fan_only' }
 ] %}
 
+{#–– Humidex override ––#}
 {% if overwrite_mode %}
   {% set rules = rules + [{
     'name':   'Humidex override → ' ~ overwrite_mode,
@@ -116,6 +118,7 @@
   }] %}
 {% endif %}
 
+{#–– Price throttle rules ––#}
 {% set rules = rules + [
   { 'name': 'Price extreme → off',
     'passed': (
@@ -136,23 +139,31 @@
     'mode':   'fan_only' }
 ] %}
 
+{#–– Too dry override only for stronger discomfort (index > 1) ––#}
 {% set rules = rules + [
   { 'name': 'Too dry → off',
-    'passed': ns.values.hum < hum_low_thr and thoms_idx > 0,
+    'passed': ns.values.hum < hum_low_thr and thoms_idx > 1,
     'mode':   'off' }
 ] %}
 
-{% set rules = rules + [
-  { 'name': 'THOMS mapping → ' ~ base_mode,
-    'passed': true,
-    'mode':   base_mode }
-] %}
+{#–– Final THOMS mapping fallback ––#}
+{% if thoms_mode %}
+  {% set rules = rules + [
+    { 'name': 'THOMS comfort → ' ~ thoms_mode,
+      'passed': true,
+      'mode':   thoms_mode }
+  ] %}
+{% endif %}
 
+{#–– Select first passed rule or prev_mode ––#}
 {% set passed = rules | selectattr('passed') | list %}
-{% if passed | length > 0 %}
+{% if passed %}
   {% set fired = passed[0] %}
 {% else %}
-  {% set fired = { 'name': 'Maintain previous mode', 'mode': ns.values.prev_mode } %}
+  {% set fired = {
+    'name': 'Maintain previous mode',
+    'mode': ns.values.prev_mode
+  } %}
 {% endif %}
 
 {% set mode = fired.mode %}
