@@ -13,7 +13,8 @@
   {'key': 'window_bed_door',   'entity': 'binary_sensor.window_sensor_bedroom_door'},
   {'key': 'lightning',         'entity': 'binary_sensor.lightning_monitor'},
   {'key': 'outlet_overloaded', 'entity': 'binary_sensor.ac_outlet_overloaded'},
-  {'key': 'price_throttle',    'entity': 'binary_sensor.price_throttle'}
+  {'key': 'price_throttle',    'entity': 'binary_sensor.price_throttle'},
+  {'key': 'motion_living',     'entity': 'binary_sensor.motion_living_room'}
 ] %}
 
 {% set override_list = [
@@ -24,18 +25,17 @@
   {'key': 'ov_comf',     'entity': 'input_boolean.air_conditioner_override_comformt'}
 ] %}
 
-
 {% set ns = namespace(values={}) %}
 {% for item in sensor_list %}
-  {% set ns.values = ns.values 
+  {% set ns.values = ns.values
      | combine({ (item['key']): states(item['entity']) | float }) %}
 {% endfor %}
 {% for item in flag_list %}
-  {% set ns.values = ns.values 
+  {% set ns.values = ns.values
      | combine({ (item['key']): is_state(item['entity'], 'on') }) %}
 {% endfor %}
 {% for item in override_list %}
-  {% set ns.values = ns.values 
+  {% set ns.values = ns.values
      | combine({ (item['key']): is_state(item['entity'], 'on') }) %}
 {% endfor %}
 {% set ns.values = ns.values | combine({
@@ -79,6 +79,7 @@
 
 {% set ac_modes = ['off','dry','cool','fan_only'] %}
 
+
 {% set rules = [
   { 'name': 'Global override → off',
     'passed': ns.values.ov_all,
@@ -98,7 +99,28 @@
 
   { 'name': 'Window open & occupied → fan_only',
     'passed': (
+      (ns.values.window_open and ns.values.motion_living) or
       (ns.values.window_bed_door and ns.values.home_state)
+    ),
+    'mode':   'fan_only' }
+] %}
+
+{% set rules = rules + [
+  { 'name': 'Price extreme → off',
+    'passed': (
+      not ns.values.price_throttle and
+      ns.values.current_price > ns.values.price_thr and
+      ns.values.severity == 'extreme' and
+      not ns.values.ov_price
+    ),
+    'mode':   'off' },
+
+  { 'name': 'Price high → fan_only',
+    'passed': (
+      not ns.values.price_throttle and
+      ns.values.current_price > ns.values.price_thr and
+      ns.values.severity == 'high' and
+      not ns.values.ov_price
     ),
     'mode':   'fan_only' }
 ] %}
@@ -110,26 +132,6 @@
     'mode':   overwrite_mode
   }] %}
 {% endif %}
-
-{% set rules = rules + [
-  { 'name': 'Price extreme → off',
-    'passed': (
-      ns.values.price_throttle and
-      ns.values.current_price > ns.values.price_thr and
-      ns.values.severity == 'extreme' and
-      not ns.values.ov_price
-    ),
-    'mode':   'off' },
-
-  { 'name': 'Price high → fan_only',
-    'passed': (
-      ns.values.price_throttle and
-      ns.values.current_price > ns.values.price_thr and
-      ns.values.severity == 'high' and
-      not ns.values.ov_price
-    ),
-    'mode':   'fan_only' }
-] %}
 
 {% set rules = rules + [
   { 'name': 'Too dry → off',
