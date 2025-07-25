@@ -28,30 +28,34 @@
 {% set ns = namespace(values={}) %}
 
 {% for item in sensor_list %}
-  {% set ns.values = ns.values 
-     | combine({ (item.key): states(item.entity) | float(item.default) }) %}
+  {% set ns.values = ns.values | combine({ (item.key): states(item.entity) | float(item.default) }) %}
 {% endfor %}
 
 {% for item in flag_list %}
-  {% set ns.values = ns.values 
-     | combine({ (item.key): is_state(item.entity, 'on') }) %}
+  {% set ns.values = ns.values | combine({ (item.key): is_state(item.entity, 'on') }) %}
 {% endfor %}
 
 {% for item in override_list %}
-  {% set ns.values = ns.values 
-     | combine({ (item.key): is_state(item.entity, 'on') }) %}
+  {% set ns.values = ns.values | combine({ (item.key): is_state(item.entity, 'on') }) %}
 {% endfor %}
 
 {% set ns.values = ns.values | combine({
-  'severity':    state_attr('binary_sensor.price_throttle','severity_scale') | default('moderate'),
-  'home_state':  is_state('person.toast','home'),
-  'forecast':    state_attr('sensor.combined_hourly_weather','forecast') | default([]),
+  'severity':    state_attr('binary_sensor.price_throttle', 'severity_scale') | default('moderate'),
+  'home_state':  is_state('person.toast', 'home'),
+  'forecast':    state_attr('sensor.combined_hourly_weather', 'forecast') | default([]),
   'prev_mode':   states('climate.air_conditioner'),
   'thoms_state': states('sensor.thermal_comfort_thoms_discomfort_perception')
 }) %}
 
-{% set ac_modes = ['off','dry','cool','fan_only'] %}
+{% set humidex_state = states('sensor.thermal_comfort_humidex_perception_2') %}
 {% set overwrite_mode = none %}
+{% if humidex_state in ['noticable_discomfort','evident_discomfort','great_discomfort'] %}
+  {% set overwrite_mode = 'dry' %}
+{% elif humidex_state in ['dangerous_discomfort','heat_stroke'] %}
+  {% set overwrite_mode = 'cool' %}
+{% endif %}
+
+{% set ac_modes = ['off','dry','cool','fan_only'] %}
 
 {% set rules = [
   {
@@ -77,26 +81,19 @@
   {
     'name':'Window open & occupied → fan_only',
     'passed': (
-      (ns.values.window_open and ns.values.motion_living)
-      or
+      (ns.values.window_open and ns.values.motion_living) or
       (ns.values.window_bed_door and ns.values.home_state)
     ),
     'mode':'fan_only'
   }
 ] %}
 
-{% set humidex_state = states('sensor.thermal_comfort_humidex_perception_2') %}
-{% if humidex_state in ['noticable_discomfort','evident_discomfort','great_discomfort'] %}
-  {% set overwrite_mode = 'dry' %}
-{% elif humidex_state in ['dangerous_discomfort','heat_stroke'] %}
-  {% set overwrite_mode = 'cool' %}
-{% endif %}
 {% if overwrite_mode %}
-  {% set rules = [{
+  {% set rules = rules + [{
     'name':'Humidex override → ' ~ overwrite_mode,
     'passed': true,
     'mode': overwrite_mode
-  }] + rules %}
+  }] %}
 {% endif %}
 
 {% set rules = rules + [
@@ -132,7 +129,10 @@
     'name':'THOMS indicates cold → off',
     'passed': ns.values.thoms_state in ['cold','very_cold','slightly_uncomfortable_cold'],
     'mode':'off'
-  },
+  }
+] %}
+
+{% set rules = rules + [
   {
     'name':'Too dry → off',
     'passed': ns.values.hum < hum_low_thr
