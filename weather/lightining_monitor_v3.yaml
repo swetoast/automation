@@ -1,56 +1,99 @@
-template:
-  - binary_sensor:
-      - name: "Lightning Strike Alert"
-        device_class: safety
-        state: >
-          {% set raw = states 
-             | selectattr('entity_id','match','^geo_location\\.lightning_strike_') 
+- platform: template
+  binary_sensors:
+    lightning_strike_alert:
+      friendly_name: "Lightning Strike Alert"
+      device_class: safety
+      value_template: >
+        {% set raw = states
+           | selectattr('entity_id','match','^geo_location\.lightning_strike_')
+           | list %}
+        {% set uniq = raw
+           | unique(attribute='attributes.external_id')
+           | list %}
+        {% set distances = uniq
+           | map(attribute='state')
+           | map('float')
+           | sort
+           | list %}
+        {% set stamps = uniq
+           | map(attribute='attributes.publication_date')
+           | map('as_timestamp')
+           | list %}
+        {% set has_data = distances | length > 0 and stamps | length > 0 %}
+        {% set now_ts = as_timestamp(now()) %}
+        {% set closest = distances[0] if has_data else none %}
+        {% set strike_ts = stamps | max if has_data else none %}
+        {% set age = (now_ts - strike_ts) | int if has_data else none %}
+        {% set strikes = distances | length %}
+        {% set i_norm = ((strikes - 1) / (10 - 1)) if has_data else 0 %}
+        {% if i_norm < 0 %}{% set i_norm = 0 %}{% endif %}
+        {% if i_norm > 1 %}{% set i_norm = 1 %}{% endif %}
+        {% set window = 300 + i_norm * (1800 - 300) %}
+        {% set radius = 10.0 + i_norm * (50.0 - 10.0) %}
+        {% set d_norm = (closest / radius) if has_data and radius else 1 %}
+        {% if d_norm > 1 %}{% set d_norm = 1 %}{% endif %}
+        {% set exponent = 4.0 + i_norm * (0.7 - 4.0) %}
+        {% set fade = (1 - d_norm) ** exponent %}
+        {% set timeout = window * fade if has_data else 0 %}
+        {% set active = has_data and age <= timeout %}
+        {{ active }}
+      attribute_templates:
+        raw_strikes_count: "{{ raw | length }}"
+        unique_strikes_count: "{{ uniq | length }}"
+        sorted_distances_km: "{{ distances }}"
+        publication_timestamps: "{{ stamps }}"
+        strikes_available: "{{ has_data }}"
+        current_timestamp: "{{ now_ts | round(3) }}"
+        closest_distance_km: "{{ closest }}"
+        latest_strike_timestamp: "{{ strike_ts }}"
+        strike_age_sec: "{{ age }}"
+        total_strikes: "{{ strikes }}"
+        intensity_norm: "{{ i_norm | round(3) }}"
+        warning_window_sec: "{{ window | round(1) }}"
+        warning_radius_km: "{{ radius | round(2) }}"
+        distance_norm: "{{ d_norm | round(3) }}"
+        fade_exponent: "{{ exponent | round(3) }}"
+        fade_factor: "{{ fade | round(3) }}"
+        timeout_sec: "{{ timeout | round(1) }}"
+        average_distance_km: >
+          {% if distances %}
+            {{ (distances | sum / distances | length) | round(2) }}
+          {% else %}0{% endif %}
+        median_distance_km: >
+          {% if distances %}
+            {% set sorted = distances | sort %}
+            {% set mid = (sorted | length / 2) | int %}
+            {{ sorted[mid] | round(2) }}
+          {% else %}0{% endif %}
+        max_distance_km: "{{ distances | max if distances else 0 }}"
+        p90_distance_km: >
+          {% if distances %}
+            {% set sorted = distances | sort %}
+            {% set idx = ((sorted | length) * 0.9) | round(0, 'floor') %}
+            {{ sorted[idx] | round(2) }}
+          {% else %}0{% endif %}
+        strikes_per_hour: >
+          {% set window = 3600 %}
+          {% set recent = stamps
+             | select('>', as_timestamp(now()) - window)
              | list %}
-          {% set uniq = raw 
-             | unique(attribute='attributes.external_id') 
-             | list %}
-          {% set distances = uniq 
-             | map(attribute='state') 
-             | map('float') 
-             | sort 
-             | list %}
-          {% set stamps = uniq 
-             | map(attribute='attributes.publication_date') 
-             | map('as_timestamp') 
-             | list %}
-          {% set has_data = distances | length > 0 and stamps | length > 0 %}
-          {% set now_ts = as_timestamp(now()) %}
-          {% set closest = distances[0] if has_data else none %}
-          {% set strike_ts = stamps | max if has_data else none %}
-          {% set age = (now_ts - strike_ts) | int if has_data else none %}
-          {% set strikes = distances | length %}
-          {% set i_norm = ((strikes - 1) / (10 - 1)) if has_data else 0 %}
-          {% if i_norm < 0 %}{% set i_norm = 0 %}{% endif %}
-          {% if i_norm > 1 %}{% set i_norm = 1 %}{% endif %}
-          {% set window = 300 + i_norm * (1800 - 300) %}
-          {% set radius = 10.0 + i_norm * (50.0 - 10.0) %}
-          {% set d_norm = (closest / radius) if has_data and radius else 1 %}
-          {% if d_norm > 1 %}{% set d_norm = 1 %}{% endif %}
-          {% set exponent = 4.0 + i_norm * (0.7 - 4.0) %}
-          {% set fade = (1 - d_norm) ** exponent %}
-          {% set timeout = window * fade if has_data else 0 %}
-          {% set active = has_data and age <= timeout %}
-          {{ active }}
-        attributes:
-          raw_strikes_count: "{{ raw | length }}"
-          unique_strikes_count: "{{ uniq | length }}"
-          sorted_distances_km: "{{ distances }}"
-          publication_timestamps: "{{ stamps }}"
-          strikes_available: "{{ has_data }}"
-          current_timestamp: "{{ now_ts | round(3) }}"
-          closest_distance_km: "{{ closest }}"
-          latest_strike_timestamp: "{{ strike_ts }}"
-          strike_age_sec: "{{ age }}"
-          total_strikes: "{{ strikes }}"
-          intensity_norm: "{{ i_norm | round(3) }}"
-          warning_window_sec: "{{ window | round(1) }}"
-          warning_radius_km: "{{ radius | round(2) }}"
-          distance_norm: "{{ d_norm | round(3) }}"
-          fade_exponent: "{{ exponent | round(3) }}"
-          fade_factor: "{{ fade | round(3) }}"
-          timeout_sec: "{{ timeout | round(1) }}"
+          {{ recent | length }}
+        avg_interval_sec: >
+          {% if stamps | length > 1 %}
+            {% set s = stamps | sort %}
+            {% set diffs = [] %}
+            {% for i in range(1, s|length) %}
+              {% set diffs = diffs + [ s[i] - s[i-1] ] %}
+            {% endfor %}
+            {{ (diffs | sum / diffs | length) | round(1) }}
+          {% else %}0{% endif %}
+        alert_level: >
+          {% if closest <= 5 %}high
+          {% elif closest <= 15 %}medium
+          {% else %}low
+          {% endif %}
+        next_strike_prediction_sec: >
+          {% if strikes > 0 %}
+            {% set rate = strikes / ((now_ts - stamps | min) | default(1)) %}
+            {{ (1 / rate) | round(0) }}
+          {% else %}none{% endif %}
