@@ -46,6 +46,7 @@
         {% set timeout = window * fade %}
         {% set active = has_data and age <= timeout %}
         {{ active }}
+
       attribute_templates:
         raw_strikes_count: "{{ raw | length }}"
         unique_strikes_count: "{{ uniq | length }}"
@@ -115,7 +116,7 @@
             {% set r = 10.0 + cl * (50.0 - 10.0) %}
             {% set d = [ (c / r), 1.0 ] | min %}
             {% set exp = 4.0 + cl * (0.7 - 4.0) %}
-            {{ ( (1 - d) ** exp ) | round(3) }}
+            {{ ((1 - d) ** exp) | round(3) }}
           {% else %}
             0.0
           {% endif %}
@@ -206,4 +207,62 @@
             {% endif %}
           {% else %}
             none
+          {% endif %}
+        max_spatial_cluster_size: >
+          {% set pts = uniq | map(attribute='attributes') | list %}
+          {% set n = pts | length %}
+          {% if n == 0 %}
+            0
+          {% else %}
+            {% set th = 5.0 %}
+            {% set counts = [] %}
+            {% for i in range(n) %}
+              {% set pi = pts[i] %}
+              {% set cnt = 1 %}
+              {% for j in range(n) %}
+                {% if j != i %}
+                  {% set pj = pts[j] %}
+                  {% set dlat = (pj.latitude - pi.latitude) * 0.01745329252 %}
+                  {% set dlon = (pj.longitude - pi.longitude) * 0.01745329252 %}
+                  {% set a = (dlat/2)**2
+                             + cos(pi.latitude*0.01745329252)
+                             * cos(pj.latitude*0.01745329252)
+                             * (dlon/2)**2 %}
+                  {% set c = 2 * asin(a**0.5) %}
+                  {% set dist = 6371.0 * c %}
+                  {% if dist <= th %}
+                    {% set cnt = cnt + 1 %}
+                  {% endif %}
+                {% endif %}
+              {% endfor %}
+              {% set counts = counts + [cnt] %}
+            {% endfor %}
+            {{ counts | max(default=0) }}
+          {% endif %}
+        is_spatial_cluster: >
+          {% set pts = uniq | map(attribute='attributes') | list %}
+          {% set n = pts | length %}
+          {% set th = 5.0 %}
+          {% if n < 2 %}
+            false
+          {% else %}
+            {% set found = false %}
+            {% for i in range(n) %}
+              {% for j in range(i + 1, n) %}
+                {% set pi = pts[i] %}
+                {% set pj = pts[j] %}
+                {% set dlat = (pj.latitude - pi.latitude) * 0.01745329252 %}
+                {% set dlon = (pj.longitude - pi.longitude) * 0.01745329252 %}
+                {% set a = (dlat/2)**2 
+                           + cos(pi.latitude*0.01745329252) 
+                           * cos(pj.latitude*0.01745329252) 
+                           * (dlon/2)**2 %}
+                {% set c = 2 * asin(a**0.5) %}
+                {% set dist = 6371.0 * c %}
+                {% if dist <= th %}
+                  {% set found = true %}
+                {% endif %}
+              {% endfor %}
+            {% endfor %}
+            {{ found }}
           {% endif %}
