@@ -1,6 +1,3 @@
-{% set hum_low_thr  = 0.30 %}
-{% set hum_high_thr = 0.60 %}
-
 {% set sensor_list = [
   {'key': 'hum',           'entity': 'sensor.average_humidity_tracker'},
   {'key': 'comfort_temp',  'entity': 'sensor.comfort_zone_temperature'},
@@ -25,30 +22,51 @@
   {'key': 'ov_comf',     'entity': 'input_boolean.air_conditioner_override_comformt'}
 ] %}
 
-{% set ns = namespace(values={}) %}
+{% set all_entities = [] %}
+{% for item in sensor_list   %}{% set all_entities = all_entities + [item.entity] %}{% endfor %}
+{% for item in flag_list     %}{% set all_entities = all_entities + [item.entity] %}{% endfor %}
+{% for item in override_list %}{% set all_entities = all_entities + [item.entity] %}{% endfor %}
 
+{% set all_entities = all_entities + [
+  'sensor.vattenfall_pricing',
+  'sensor.combined_hourly_weather',
+  'climate.air_conditioner',
+  'person.toast',
+  'sensor.thermal_comfort_thoms_discomfort_perception_2',
+  'sensor.thermal_comfort_humidex_perception_2'
+] %}
+
+{% set invalid = [] %}
+{% for ent in all_entities %}
+  {% if states(ent) in ['unavailable','unknown'] %}
+    {% set invalid = invalid + [ent ~ ' (' ~ states(ent) ~ ')'] %}
+  {% endif %}
+{% endfor %}
+
+{% set hum_low_thr  = 0.30 %}
+{% set hum_high_thr = 0.60 %}
+
+{% set ns = namespace(values={}) %}
 {% for item in sensor_list %}
-  {% set ns.values = ns.values
-     | combine({ (item.key): states(item.entity) | float }) %}
+  {%- set val = states(item.entity) | float(0) -%}
+  {%- set ns.values = ns.values | combine({ (item.key): val }) -%}
 {% endfor %}
 
 {% for item in flag_list %}
-  {% set ns.values = ns.values
-     | combine({ (item.key): is_state(item.entity, 'on') }) %}
+  {%- set ns.values = ns.values | combine({ (item.key): is_state(item.entity, 'on') }) -%}
 {% endfor %}
-
 {% for item in override_list %}
-  {% set ns.values = ns.values
-     | combine({ (item.key): is_state(item.entity, 'on') }) %}
+  {%- set ns.values = ns.values | combine({ (item.key): is_state(item.entity, 'on') }) -%}
 {% endfor %}
 
 {% set ns.values = ns.values | combine({
-  'severity':    state_attr('binary_sensor.price_throttle', 'severity_scale'),
+  'severity':    state_attr('sensor.vattenfall_pricing', 'severity_scale'),
   'home_state':  is_state('person.toast', 'home'),
   'forecast':    state_attr('sensor.combined_hourly_weather', 'forecast'),
   'prev_mode':   states('climate.air_conditioner'),
   'thoms_state': states('sensor.thermal_comfort_thoms_discomfort_perception_2')
 }) %}
+
 
 {% set humidex_state = states('sensor.thermal_comfort_humidex_perception_2') %}
 {% set overwrite_mode = none %}
@@ -74,91 +92,45 @@
 {% endif %}
 
 {% set ac_modes = ['off','dry','cool','fan_only'] %}
-
 {% set rules = [
-  { 'name': 'Global override → off',
-    'passed': ns.values.ov_all,
-    'mode':   'off' },
-
-  { 'name': 'Not home & no override → off',
-    'passed': (not ns.values.home_state and not ns.values.ov_not_home),
-    'mode':   'off' },
-
-  { 'name': 'Lightning safeguard → off',
-    'passed': (ns.values.lightning and not ns.values.ov_light),
-    'mode':   'off' },
-
-  { 'name': 'Outlet overloaded → off',
-    'passed': (ns.values.outlet_overloaded and not ns.values.ov_comf),
-    'mode':   'off' },
-
-  { 'name': 'Window open & occupied → fan_only',
-    'passed': (
-      (ns.values.window_open and ns.values.motion_living) or
-      (ns.values.window_bed_door and ns.values.home_state)
-    ),
-    'mode':   'fan_only' }
+  { 'name': 'Global override → off',   'passed': ns.values.ov_all,            'mode': 'off' },
+  { 'name': 'Not home & no override → off', 'passed': (not ns.values.home_state and not ns.values.ov_not_home), 'mode': 'off' },
+  { 'name': 'Lightning safeguard → off','passed': (ns.values.lightning and not ns.values.ov_light),    'mode': 'off' },
+  { 'name': 'Outlet overloaded → off','passed': (ns.values.outlet_overloaded and not ns.values.ov_comf), 'mode': 'off' },
+  { 'name': 'Window open & occupied → fan_only','passed': ((ns.values.window_open and ns.values.motion_living) or (ns.values.window_bed_door and ns.values.home_state)),'mode':'fan_only'}
 ] %}
-
 {% set rules = rules + [
-  { 'name': 'Price extreme → off',
-    'passed': (
-      ns.values.price_guard and
-      ns.values.current_price > ns.values.price_thr and
-      ns.values.severity == 'extreme' and
-      not ns.values.ov_price
-    ),
-    'mode':   'off' },
-
-  { 'name': 'Price high → fan_only',
-    'passed': (
-      ns.values.price_guard and
-      ns.values.current_price > ns.values.price_thr and
-      ns.values.severity == 'high' and
-      not ns.values.ov_price
-    ),
-    'mode':   'fan_only' }
+  { 'name': 'Price extreme → off','passed': (ns.values.price_guard and ns.values.current_price > ns.values.price_thr and ns.values.severity == 'extreme' and not ns.values.ov_price),'mode':'off' },
+  { 'name': 'Price high → fan_only','passed': (ns.values.price_guard and ns.values.current_price > ns.values.price_thr and ns.values.severity == 'high' and not ns.values.ov_price),'mode':'fan_only' }
 ] %}
-
 {% if overwrite_mode %}
-  {% set rules = rules + [{
-    'name':   'Humidex override → ' ~ overwrite_mode,
-    'passed': true,
-    'mode':   overwrite_mode
-  }] %}
+  {% set rules = rules + [{ 'name': 'Humidex override → ' ~ overwrite_mode,'passed': true,'mode': overwrite_mode }] %}
 {% endif %}
-
 {% set rules = rules + [
-  { 'name': 'Too dry → off',
-    'passed': ns.values.hum < hum_low_thr and thoms_idx > 1,
-    'mode':   'off' }
+  { 'name': 'Too dry → off', 'passed': ns.values.hum < hum_low_thr and thoms_idx > 1, 'mode': 'off' }
 ] %}
-
 {% if thoms_mode %}
-  {% set rules = rules + [
-    { 'name': 'THOMS comfort → ' ~ thoms_mode,
-      'passed': true,
-      'mode':   thoms_mode }
-  ] %}
+  {% set rules = rules + [{ 'name': 'THOMS comfort → ' ~ thoms_mode, 'passed': true, 'mode': thoms_mode }] %}
 {% endif %}
 
 {% set passed = rules | selectattr('passed') | list %}
 {% if passed %}
   {% set fired = passed[0] %}
 {% else %}
-  {% set fired = {
-    'name': 'Maintain previous mode',
-    'mode': ns.values.prev_mode
-  } %}
+  {% set fired = { 'name': 'Maintain previous mode', 'mode': ns.values.prev_mode } %}
 {% endif %}
-
 {% set mode = fired.mode %}
 {% if mode not in ac_modes %}
   {% set mode = ns.values.prev_mode %}
 {% endif %}
 
-{{ mode }}
+{% if invalid %}
+INVALID ENTITIES:
+{% for e in invalid %}
+- {{ e }}
+{% endfor %}
 
+{% endif %}
 Final AC Mode: {{ mode }}
 Reason: {{ fired.name }}
 
