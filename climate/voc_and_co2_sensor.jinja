@@ -1,0 +1,55 @@
+{% set co2_target = 1000    %}
+{% set voc_target = 500     %}
+{% set t_on       = 15      %}
+{% set t_off      = 30      %}
+
+{% set dco2 = states('sensor.bedroom_co2_tracker') | float %}
+{% set dvoc = states('sensor.bedroom_voc_tracker') | float %}
+
+{% set co2            = states('sensor.bedroom_carbon_dioxide') | float %}
+{% set voc            = states('sensor.bedroom_volatile_organic_compounds_parts') | float %}
+{% set drop_rate_co2  = (-dco2) %}
+{% set drop_rate_voc  = (-dvoc) %}
+
+{% if co2 <= co2_target %}
+  {% set t_safe_co2 = 0 %}
+{% elif dco2 < 0 %}
+  {% set t_safe_co2 = (co2 - co2_target) / (-dco2) %}
+{% else %}
+  {% set t_safe_co2 = 999 %}
+{% endif %}
+
+{% if voc <= voc_target %}
+  {% set t_safe_voc = 0 %}
+{% elif dvoc < 0 %}
+  {% set t_safe_voc = (voc - voc_target) / (-dvoc) %}
+{% else %}
+  {% set t_safe_voc = 999 %}
+{% endif %}
+
+{% set fan_on  = ((co2 > co2_target) and (t_safe_co2  > t_on)) 
+                or ((voc > voc_target) and (t_safe_voc  > t_on)) %}
+
+{% set fan_off = (co2 <= co2_target) and (voc <= voc_target) %}
+
+co2_target           : {{ co2_target }} ppm  
+voc_target           : {{ voc_target }} ppb  
+
+dco2 (raw rate)      : {{ dco2 }}  
+dvoc (raw rate)      : {{ dvoc }}  
+
+drop_rate_co2        : {{ drop_rate_co2 | round(2) }} ppm/min  
+drop_rate_voc        : {{ drop_rate_voc | round(2) }} ppb/min  
+
+co2 (current)        : {{ co2 }} ppm  
+voc (current)        : {{ voc }} ppb  
+
+t_safe_co2 (mins)    : {{ t_safe_co2 == 999 
+                            and '∞' 
+                            or (t_safe_co2 | round(1)) }}  
+t_safe_voc (mins)    : {{ t_safe_voc == 999 
+                            and '∞' 
+                            or (t_safe_voc | round(1)) }}  
+
+fan_on?              : {{ fan_on }}  
+fan_off?             : {{ fan_off }}  
