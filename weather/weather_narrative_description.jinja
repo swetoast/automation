@@ -17,12 +17,9 @@
 {% set simmer_index = states('sensor.thermal_outside_comfort_summer_simmer_index') | float(0) %}
 {% set simmer_desc = states('sensor.thermal_outside_comfort_summer_simmer_perception') | replace('_',' ') %}
 {% set forecast = state_attr('sensor.combined_hourly_weather','forecast') %}
-
-{# Aurora Sensors #}
 {% set aurora_visible = states('sensor.aurora_visibility_visibility') | float(0) %}
 {% set aurora_alert = is_state('binary_sensor.aurora_visibility_alert', 'on') %}
 
-{# ----------- Comfort Summary ----------- #}
 {% set summary = namespace(text='') %}
 {% if season == 'summer' %}
   {% set summary.text = 'Summer has fully settled over Borås today  the air feels heavy and warm. ' %}
@@ -79,7 +76,6 @@
     'Moist air carries a high energy load: ' ~ enthalpy | round(1) ~ ' kJ/kg, the kind that lets heat linger and ventilation matters. ' %}
 {% endif %}
 
-{# ----------- Forecast Narrative ----------- #}
 {% set rain_events = [] %}
 {% set wind_events = [] %}
 {% set temp_list = [] %}
@@ -99,12 +95,10 @@
 
 {% set forecast_text = namespace(text='') %}
 
-{# 🧯 Nothing happening fallback #}
 {% if rain_events | length == 0 and wind_events | length == 0 and temp_list | length < 2 %}
   {% set forecast_text.text = 'Conditions are expected to remain stable overnight  no notable rain, wind, or temperature changes on the horizon. ' %}
 {% endif %}
 
-{# 🌧️ Rain Narrative #}
 {% if rain_events | length > 0 %}
   {% set first = rain_events[0].datetime | as_datetime %}
   {% set last = rain_events[-1].datetime | as_datetime %}
@@ -124,7 +118,6 @@
   {% endif %}
 {% endif %}
 
-{# 💨 Wind Narrative #}
 {% if wind_events | length > 0 %}
   {% set peak = wind_events | map(attribute='wind_speed') | map('float') | max %}
   {% set wind_time = wind_events[0].datetime | as_datetime %}
@@ -133,7 +126,6 @@
     'Winds may strengthen later on, picking up near ' ~ wind_hour ~ ' and reaching up to ' ~ peak | round(1) ~ ' km/h. ' %}
 {% endif %}
 
-{# 🌡️ Temperature Trend #}
 {% if temp_list | length > 1 %}
   {% set delta = temp_list[-1] - temp_list[0] %}
   {% if delta >= 1.5 %}
@@ -143,14 +135,12 @@
   {% endif %}
 {% endif %}
 
-{# ✨ Combine Forecast into Summary #}
 {% if forecast_text.text %}
   {% set summary.text = summary.text ~
     'As the evening unfolds, conditions will shift. ' ~ forecast_text.text ~
     'No further sharp changes are currently forecast  a warm, humid night lies ahead. ' %}
 {% endif %}
 
-{# 🌌 Aurora Integration #}
 {% if aurora_visible > 0 %}
   {% set summary.text = summary.text ~
     'Skies permitting, keep an eye northward  aurora visibility tonight is at ' ~ aurora_visible | round(0) ~ '%. ' %}
