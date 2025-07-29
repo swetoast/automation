@@ -3,266 +3,166 @@
     lightning_strike_alert:
       friendly_name: "Lightning Strike Alert"
       device_class: safety
-      value_template: >
+      value_template: >-
         {% set raw = states
-           | selectattr('entity_id','match','^geo_location\\.lightning_strike_')
+           | selectattr('entity_id','match','^geo_location\.lightning_strike_')
            | list %}
+        Raw entities: {{ raw|length }}
+
         {% set uniq = raw
            | unique(attribute='attributes.external_id')
            | list %}
+        Unique strikes: {{ uniq|length }}
+
         {% set distances = uniq
-           | map(attribute='state') | map('float') | list %}
+           | map(attribute='state')
+           | map('float')
+           | list %}
+        Distances: {{ distances }}
+
         {% set stamps = uniq
            | map(attribute='attributes.publication_date')
-           | map('as_timestamp') | list %}
-        {% set has_data = distances | length > 0 and stamps | length > 0 %}
-        {% set now_ts = as_timestamp(now()) %}
+           | map('as_timestamp')
+           | list %}
+        Timestamps: {{ stamps }}
 
-        {% if has_data %}
-          {% set closest = distances | min %}
-          {% set strike_ts = stamps | max %}
-          {% set age = (now_ts - strike_ts) | int %}
+        {% set has_data = distances|length > 0 and stamps|length > 0 %}
+        Has data: {{ has_data }}
+
+        {% set now_ts = as_timestamp(now()) %}
+        Now ts: {{ now_ts }}
+
+        {% if distances|length > 0 %}
+          {% set closest = distances|min %}
         {% else %}
           {% set closest = none %}
+        {% endif %}
+        Closest dist: {{ closest }}
+
+        {% if stamps|length > 0 %}
+          {% set latest_ts = stamps|max %}
+        {% else %}
+          {% set latest_ts = none %}
+        {% endif %}
+        Latest ts: {{ latest_ts }}
+
+        {% if closest != none and latest_ts != none %}
+          {% set age = (now_ts - latest_ts)|int %}
+        {% else %}
           {% set age = none %}
         {% endif %}
+        Age sec: {{ age }}
 
-        {% set strikes = distances | length %}
-        {% set norm = (strikes - 1) / 9 %}
-        {% set clamp_list = [0, norm, 1] | sort %}
+        {% set strikes = distances|length %}
+        Strikes count: {{ strikes }}
+
+        {% set raw_norm = strikes > 0 and ((strikes - 1) / 9) or 0 %}
+        Raw norm: {{ raw_norm }}
+
+        {% set clamp_list = [0, raw_norm, 1] | sort %}
+        Clamped list: {{ clamp_list }}
         {% set i_clamped = clamp_list[1] %}
-        {% set window = 300 + i_clamped * (1800 - 300) %}
-        {% set radius = 10.0 + i_clamped * (50.0 - 10.0) %}
+        Clamped intensity: {{ i_clamped }}
 
-        {% if closest is not none %}
-          {% set d_tmp = closest / radius %}
-          {% set d_norm = [d_tmp, 1.0] | min %}
+        {% set window = 300 + i_clamped * (1800 - 300) %}
+        Window sec: {{ window }}
+
+        {% set radius = 10 + i_clamped * (50 - 10) %}
+        Radius km: {{ radius }}
+
+        {% set epsilon = 0.99 %}
+        {% if closest != none %}
+          {% set ratio = closest / radius %}
+          {% set d_norm = ratio > epsilon and epsilon or ratio %}
         {% else %}
-          {% set d_norm = 1.0 %}
+          {% set d_norm = 1 %}
+        {% endif %}
+        Distance norm: {{ d_norm }}
+
+        {% set exponent = 4 + i_clamped * (0.7 - 4) %}
+        Fade exp: {{ exponent }}
+
+        {% set fade = (1 - d_norm) ** exponent %}
+        Fade: {{ fade }}
+
+        {% set timeout = window * fade %}
+        Timeout sec: {{ timeout }}
+
+        Alert active: {{ has_data and age != none and age <= timeout }}
+
+        {% if stamps|length > 1 %}
+          {% set ss = stamps|sort %}
+          {% set diffs = [] %}
+          {% for i in range(1, ss|length) %}
+            {% set diffs = diffs + [ ss[i] - ss[i-1] ] %}
+          {% endfor %}
+          {% set total = diffs|sum %}
+          {% set n_diff = diffs|length %}
+          {% if n_diff > 0 %}
+            Avg interval sec: {{ (total / n_diff)|round(1) }}
+          {% else %}
+            Avg interval sec: 0
+          {% endif %}
+        {% else %}
+          Avg interval sec: 0
         {% endif %}
 
-        {% set exponent = 4.0 + i_clamped * (0.7 - 4.0) %}
-        {% set fade = (1 - d_norm) ** exponent %}
-        {% set timeout = window * fade %}
-        {% set active = has_data and age <= timeout %}
-        {{ active }}
-
-      attribute_templates:
-        raw_strikes_count: "{{ raw | length }}"
-        unique_strikes_count: "{{ uniq | length }}"
-        sorted_distances_km: "{{ distances }}"
-        publication_timestamps: "{{ stamps }}"
-        strikes_available: "{{ has_data }}"
-        current_timestamp: >
-          {% set ts = as_timestamp(now()) %}{{ ts | round(3) }}
-        closest_distance_km: >
-          {% if distances | length > 0 %}
-            {{ distances | min }}
-          {% else %}
-            999
-          {% endif %}
-        latest_strike_timestamp: >
-          {% if stamps | length > 0 %}
-            {{ stamps | max }}
-          {% else %}
-            none
-          {% endif %}
-        strike_age_sec: >
-          {% if stamps | length > 0 %}
-            {% set ts_now = as_timestamp(now()) %}
-            {% set ts_latest = stamps | max %}
-            {{ (ts_now - ts_latest) | round(1) }}
-          {% else %}
-            0
-          {% endif %}
-        total_strikes: "{{ distances | length }}"
-        intensity_norm: >
-          {% set count = distances | length %}
-          {% set n = (count - 1) / 9 %}
-          {% set cl = ([0, n, 1] | sort)[1] %}
-          {{ cl | round(3) }}
-        warning_window_sec: >
-          {% set count = distances | length %}
-          {% set n = (count - 1) / 9 %}
-          {% set cl = ([0, n, 1] | sort)[1] %}
-          {{ (300 + cl * (1800 - 300)) | round(1) }}
-        warning_radius_km: >
-          {% set count = distances | length %}
-          {% set n = (count - 1) / 9 %}
-          {% set cl = ([0, n, 1] | sort)[1] %}
-          {{ (10.0 + cl * (50.0 - 10.0)) | round(2) }}
-        distance_norm: >
-          {% if distances | length > 0 %}
-            {% set c = distances | min %}
-            {% set count = distances | length %}
-            {% set n = (count - 1) / 9 %}
-            {% set cl = ([0, n, 1] | sort)[1] %}
-            {% set r = 10.0 + cl * (50.0 - 10.0) %}
-            {{ [ (c / r), 1.0 ] | min | round(3) }}
-          {% else %}
-            1.0
-          {% endif %}
-        fade_exponent: >
-          {% set count = distances | length %}
-          {% set n = (count - 1) / 9 %}
-          {% set cl = ([0, n, 1] | sort)[1] %}
-          {{ (4.0 + cl * (0.7 - 4.0)) | round(3) }}
-        fade_factor: >
-          {% if distances | length > 0 %}
-            {% set c = distances | min %}
-            {% set count = distances | length %}
-            {% set n = (count - 1) / 9 %}
-            {% set cl = ([0, n, 1] | sort)[1] %}
-            {% set r = 10.0 + cl * (50.0 - 10.0) %}
-            {% set d = [ (c / r), 1.0 ] | min %}
-            {% set exp = 4.0 + cl * (0.7 - 4.0) %}
-            {{ ((1 - d) ** exp) | round(3) }}
-          {% else %}
-            0.0
-          {% endif %}
-        timeout_sec: >
-          {% if distances | length > 0 and stamps | length > 0 %}
-            {% set count = distances | length %}
-            {% set n = (count - 1) / 9 %}
-            {% set cl = ([0, n, 1] | sort)[1] %}
-            {% set w = 300 + cl * (1800 - 300) %}
-            {% set c = distances | min %}
-            {% set r = 10.0 + cl * (50.0 - 10.0) %}
-            {% set d = [ (c / r), 1.0 ] | min %}
-            {% set exp = 4.0 + cl * (0.7 - 4.0) %}
-            {% set f = (1 - d) ** exp %}
-            {{ (w * f) | round(1) }}
-          {% else %}
-            0
-          {% endif %}
-        average_distance_km: >
-          {% if distances | length > 0 %}
-            {{ (distances | sum / distances | length) | round(2) }}
-          {% else %}
-            0
-          {% endif %}
-        median_distance_km: >
-          {% if distances | length > 0 %}
-            {% set s = distances | sort %}
-            {% set mid = s | length // 2 %}
-            {{ s[mid] | round(2) }}
-          {% else %}
-            0
-          {% endif %}
-        max_distance_km: >
-          {% if distances | length > 0 %}
-            {{ distances | max | round(2) }}
-          {% else %}
-            0
-          {% endif %}
-        p90_distance_km: >
-          {% if distances | length > 0 %}
-            {% set s = distances | sort %}
-            {% set idx = (s | length * 0.9) | int %}
-            {{ s[idx] | round(2) }}
-          {% else %}
-            0
-          {% endif %}
-        strikes_per_hour: >
-          {% if stamps | length > 0 %}
-            {% set recent = stamps | select('>', as_timestamp(now()) - 3600) | list %}
-            {{ recent | length }}
-          {% else %}
-            0
-          {% endif %}
-        avg_interval_sec: >
-          {% if stamps | length > 1 %}
-            {% set s = stamps | sort %}
-            {% set diffs = [] %}
-            {% for i in range(1, s | length) %}
-              {% set diffs = diffs + [ s[i] - s[i-1] ] %}
-            {% endfor %}
-            {{ (diffs | sum / diffs | length) | round(1) }}
-          {% else %}
-            0
-          {% endif %}
-        alert_level: >
-          {% if distances | length == 0 %}
-            none
-          {% else %}
-            {% set c = distances | min %}
-            {% if c <= 5 %}
-              high
-            {% elif c <= 15 %}
-              medium
-            {% else %}
-              low
-            {% endif %}
-          {% endif %}
-        next_strike_prediction_sec: >
-          {% if stamps | length > 1 %}
-            {% set ts = as_timestamp(now()) %}
-            {% set first = stamps | min %}
-            {% set elapsed = ts - first %}
-            {% if elapsed > 0 %}
-              {% set rate = stamps | length / elapsed %}
-              {{ (1 / rate) | round(0) }}
-            {% else %}
-              none
-            {% endif %}
-          {% else %}
-            none
-          {% endif %}
-        max_spatial_cluster_size: >
-          {% set pts = uniq | map(attribute='attributes') | list %}
-          {% set n = pts | length %}
-          {% if n == 0 %}
-            0
-          {% else %}
-            {% set th = 5.0 %}
-            {% set counts = [] %}
-            {% for i in range(n) %}
-              {% set pi = pts[i] %}
-              {% set cnt = 1 %}
-              {% for j in range(n) %}
-                {% if j != i %}
-                  {% set pj = pts[j] %}
-                  {% set dlat = (pj.latitude - pi.latitude) * 0.01745329252 %}
-                  {% set dlon = (pj.longitude - pi.longitude) * 0.01745329252 %}
-                  {% set a = (dlat/2)**2
-                             + cos(pi.latitude*0.01745329252)
-                             * cos(pj.latitude*0.01745329252)
-                             * (dlon/2)**2 %}
-                  {% set c = 2 * asin(a**0.5) %}
-                  {% set dist = 6371.0 * c %}
-                  {% if dist <= th %}
-                    {% set cnt = cnt + 1 %}
-                  {% endif %}
-                {% endif %}
-              {% endfor %}
-              {% set counts = counts + [cnt] %}
-            {% endfor %}
-            {{ counts | max(default=0) }}
-          {% endif %}
-        is_spatial_cluster: >
-          {% set pts = uniq | map(attribute='attributes') | list %}
-          {% set n = pts | length %}
+        {% set pts = uniq | map(attribute='attributes') | list %}
+        {% set n = pts|length %}
+        Max cluster size:
+        {% if n < 1 %}
+          0
+        {% else %}
           {% set th = 5.0 %}
-          {% if n < 2 %}
-            false
-          {% else %}
-            {% set found = false %}
-            {% for i in range(n) %}
-              {% for j in range(i + 1, n) %}
-                {% set pi = pts[i] %}
+          {% set counts = [] %}
+          {% for i in range(n) %}
+            {% set pi = pts[i] %}
+            {% set cnt = 1 %}
+            {% for j in range(n) %}
+              {% if j != i %}
                 {% set pj = pts[j] %}
                 {% set dlat = (pj.latitude - pi.latitude) * 0.01745329252 %}
                 {% set dlon = (pj.longitude - pi.longitude) * 0.01745329252 %}
-                {% set a = (dlat/2)**2 
-                           + cos(pi.latitude*0.01745329252) 
-                           * cos(pj.latitude*0.01745329252) 
+                {% set a = (dlat/2)**2
+                           + cos(pi.latitude*0.01745329252)
+                           * cos(pj.latitude*0.01745329252)
                            * (dlon/2)**2 %}
                 {% set c = 2 * asin(a**0.5) %}
                 {% set dist = 6371.0 * c %}
                 {% if dist <= th %}
-                  {% set found = true %}
+                  {% set cnt = cnt + 1 %}
                 {% endif %}
-              {% endfor %}
+              {% endif %}
             {% endfor %}
-            {{ found }}
-          {% endif %}
+            {% set counts = counts + [cnt] %}
+          {% endfor %}
+          {{ counts|length > 0 and (counts|max) or 0 }}
+        {% endif %}
+
+        Is cluster:
+        {% set th = 5.0 %}
+        {% if n < 2 %}
+          false
+        {% else %}
+          {% set found = false %}
+          {% for i in range(n) %}
+            {% for j in range(i+1, n) %}
+              {% set pi = pts[i] %}
+              {% set pj = pts[j] %}
+              {% set dlat = (pj.latitude - pi.latitude) * 0.01745329252 %}
+              {% set dlon = (pj.longitude - pi.longitude) * 0.01745329252 %}
+              {% set a = (dlat/2)**2
+                         + cos(pi.latitude*0.01745329252)
+                         * cos(pj.latitude*0.01745329252)
+                         * (dlon/2)**2 %}
+              {% set c = 2 * asin(a**0.5) %}
+              {% set dist = 6371.0 * c %}
+              {% if dist <= th %}
+                {% set found = true %}
+                {% break %}
+              {% endif %}
+            {% endfor %}
+            {% if found %}{% break %}{% endif %}
+          {% endfor %}
+          {{ found }}
+        {% endif %}
