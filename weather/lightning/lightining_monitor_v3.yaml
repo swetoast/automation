@@ -333,6 +333,7 @@
           {% else %}
             0
           {% endif %}
+          
         max_cluster_size: >-
           {% set pts = uniq|map(attribute='attributes')|list %}
           {% set n = pts|length %}
@@ -361,6 +362,7 @@
             {% endfor %}
             {{ counts|max }}
           {% endif %}
+          
         is_cluster: >-
           {% set pts = uniq|map(attribute='attributes')|list %}
           {% set n = pts|length %}
