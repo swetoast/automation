@@ -35,7 +35,6 @@
   'sensor.thermal_comfort_humidex_perception_2'
 ] %}
 
-{# build list of invalid entities #}
 {% set invalid = [] %}
 {% for ent in all_entities %}
   {% if states(ent) in ['unavailable','unknown'] %}
@@ -43,34 +42,27 @@
   {% endif %}
 {% endfor %}
 
-{# humidity thresholds #}
 {% set hum_low_thr  = 0.30 %}
 {% set hum_high_thr = 0.60 %}
 
-{# namespace to collect all values #}
 {% set ns = namespace(values={}) %}
 
-{# pull numeric sensors #}
 {% for item in sensor_list %}
   {% set val = states(item.entity) | float(0) %}
   {% set ns.values = ns.values | combine({ (item.key): val }) %}
 {% endfor %}
 
-{# pull binary flags #}
 {% for item in flag_list %}
   {% set ns.values = ns.values | combine({ (item.key): is_state(item.entity, 'on') }) %}
 {% endfor %}
 
-{# pull override booleans #}
 {% for item in override_list %}
   {% set ns.values = ns.values | combine({ (item.key): is_state(item.entity, 'on') }) %}
 {% endfor %}
 
-{# override current_price to use the real binary_sensor attribute #}
 {% set cp = state_attr('binary_sensor.price_guard','current_price') | float(0) %}
 {% set ns.values = ns.values | combine({ 'current_price': cp }) %}
 
-{# other attributes #}
 {% set ns.values = ns.values | combine({
   'severity':   state_attr('sensor.vattenfall_pricing', 'severity_scale'),
   'home_state': is_state('person.toast', 'home'),
@@ -79,7 +71,6 @@
   'thoms_state': states('sensor.thermal_comfort_thoms_discomfort_perception_2')
 }) %}
 
-{# humidex override #}
 {% set humidex = states('sensor.thermal_comfort_humidex_perception_2') %}
 {% set overwrite_mode = none %}
 {% if humidex in ['noticable_discomfort','evident_discomfort','great_discomfort'] %}
@@ -88,7 +79,6 @@
   {% set overwrite_mode = 'cool' %}
 {% endif %}
 
-{# Thom’s discomfort override #}
 {% set thoms = ns.values.thoms_state %}
 {% set thoms_mode = none %}
 {% if thoms == 'no_discomfort' %}
@@ -97,7 +87,6 @@
   {% set thoms_mode = 'cool' %}
 {% endif %}
 
-{# build evaluation rules #}
 {% set ac_modes = ['off','dry','cool','fan_only'] %}
 {% set rules = [
   { 'name': 'Global override → off',
@@ -118,7 +107,6 @@
     'mode': 'fan_only' }
 ] %}
 
-{# price rules #}
 {% set rules = rules + [
   { 'name': 'Price extreme → off',
     'passed': (ns.values.price_guard
@@ -134,7 +122,6 @@
     'mode': 'fan_only' }
 ] %}
 
-{# environmental overrides #}
 {% if overwrite_mode %}
   {% set rules = rules + [{
     'name': 'Humidex override → ' ~ overwrite_mode,
@@ -143,7 +130,6 @@
   }] %}
 {% endif %}
 
-{# too dry shutdown #}
 {% set dry_states = ['more_than_half','most','everyone','dangerous'] %}
 {% set rules = rules + [
   { 'name': 'Too dry → off',
@@ -151,7 +137,6 @@
     'mode': 'off' }
 ] %}
 
-{# Thom’s comfort last #}
 {% if thoms_mode %}
   {% set rules = rules + [{
     'name': 'THOMS comfort → ' ~ thoms_mode,
@@ -160,7 +145,6 @@
   }] %}
 {% endif %}
 
-{# pick first passed rule #}
 {% set passed = rules | selectattr('passed') | list %}
 {% if passed %}
   {% set fired = passed[0] %}
