@@ -21,7 +21,6 @@
   {'key': 'ov_comf',     'entity': 'input_boolean.air_conditioner_override_comformt'}
 ] %}
 
-{# collect all entities to detect unavailable/unknown #}
 {% set all_entities = [] %}
 {% for item in sensor_list   %}{% set all_entities = all_entities + [item.entity] %}{% endfor %}
 {% for item in flag_list     %}{% set all_entities = all_entities + [item.entity] %}{% endfor %}
