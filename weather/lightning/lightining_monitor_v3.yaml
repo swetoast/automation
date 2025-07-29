@@ -70,6 +70,7 @@
             | list %}
           {% set raw_entities = raw | length %}
           {{ raw_entities }}
+          
         unique_strikes: >
           {% set raw = states
             | selectattr('entity_id','match','^geo_location\.lightning_strike_')
@@ -78,6 +79,7 @@
             | unique(attribute='attributes.external_id')
             | list %}
           {{ uniq | length }}
+          
         distances: >
           {% set raw = states
              | selectattr('entity_id','match','^geo_location\.lightning_strike_')
@@ -90,6 +92,7 @@
              | map('float')
              | list %}
           {{ distances }}
+          
         timestamps: >
           {% set raw = states
              | selectattr('entity_id','match','^geo_location\\.lightning_strike_')
@@ -102,6 +105,7 @@
              | map('as_timestamp')
              | list %}
           {{ stamps }}
+          
         has_data: >
           {% set raw = states
              | selectattr('entity_id','match','^geo_location\\.lightning_strike_')
@@ -119,9 +123,11 @@
              | list %}
           {% set has_data = distances|length > 0 and stamps|length > 0 %}
           {{ has_data }}
+          
         now_ts: >
           {% set now_ts = as_timestamp(now()) %}
           {{ now_ts }}
+          
         closest_dist: >
           {% set raw = states
              | selectattr('entity_id','match','^geo_location\\.lightning_strike_')
@@ -139,6 +145,7 @@
             {% set closest = none %}
           {% endif %}
           {{ closest }}
+          
         latest_ts: >
           {% set raw = states
             | selectattr('entity_id','match','^geo_location\\.lightning_strike_')
@@ -152,6 +159,7 @@
             | list %}
           {% if stamps %}{% set latest_ts = stamps|max %}{% else %}{% set latest_ts = none %}{% endif %}
           {{ latest_ts }}
+          
         age_sec: >
           {% set raw = states|selectattr('entity_id','match','^geo_location\\.lightning_strike_')|list %}
           {% set uniq = raw|unique(attribute='attributes.external_id')|list %}
