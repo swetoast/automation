@@ -7,162 +7,375 @@
         {% set raw = states
            | selectattr('entity_id','match','^geo_location\.lightning_strike_')
            | list %}
-        Raw entities: {{ raw|length }}
-
         {% set uniq = raw
            | unique(attribute='attributes.external_id')
            | list %}
-        Unique strikes: {{ uniq|length }}
-
         {% set distances = uniq
            | map(attribute='state')
            | map('float')
            | list %}
-        Distances: {{ distances }}
-
         {% set stamps = uniq
            | map(attribute='attributes.publication_date')
            | map('as_timestamp')
            | list %}
-        Timestamps: {{ stamps }}
-
         {% set has_data = distances|length > 0 and stamps|length > 0 %}
-        Has data: {{ has_data }}
-
         {% set now_ts = as_timestamp(now()) %}
-        Now ts: {{ now_ts }}
-
-        {% if distances|length > 0 %}
+        {% if distances %}
           {% set closest = distances|min %}
         {% else %}
           {% set closest = none %}
         {% endif %}
-        Closest dist: {{ closest }}
-
-        {% if stamps|length > 0 %}
+        {% if stamps %}
           {% set latest_ts = stamps|max %}
         {% else %}
           {% set latest_ts = none %}
         {% endif %}
-        Latest ts: {{ latest_ts }}
-
         {% if closest != none and latest_ts != none %}
           {% set age = (now_ts - latest_ts)|int %}
         {% else %}
           {% set age = none %}
         {% endif %}
-        Age sec: {{ age }}
-
         {% set strikes = distances|length %}
-        Strikes count: {{ strikes }}
-
-        {% set raw_norm = strikes > 0 and ((strikes - 1) / 9) or 0 %}
-        Raw norm: {{ raw_norm }}
-
-        {% set clamp_list = [0, raw_norm, 1] | sort %}
-        Clamped list: {{ clamp_list }}
-        {% set i_clamped = clamp_list[1] %}
-        Clamped intensity: {{ i_clamped }}
-
+        {% if strikes > 0 %}
+          {% set raw_norm = (strikes - 1) / 9 %}
+        {% else %}
+          {% set raw_norm = 0 %}
+        {% endif %}
+        {% if raw_norm < 0 %}
+          {% set i_clamped = 0 %}
+        {% elif raw_norm > 1 %}
+          {% set i_clamped = 1 %}
+        {% else %}
+          {% set i_clamped = raw_norm %}
+        {% endif %}
         {% set window = 300 + i_clamped * (1800 - 300) %}
-        Window sec: {{ window }}
-
         {% set radius = 10 + i_clamped * (50 - 10) %}
-        Radius km: {{ radius }}
-
         {% set epsilon = 0.99 %}
-        {% if closest != none %}
-          {% set ratio = closest / radius %}
-          {% set d_norm = ratio > epsilon and epsilon or ratio %}
+        {% if closest %}
+          {% set d_norm = closest / radius %}
+          {% if d_norm > epsilon %}
+            {% set d_norm = epsilon %}
+          {% endif %}
         {% else %}
           {% set d_norm = 1 %}
         {% endif %}
-        Distance norm: {{ d_norm }}
-
         {% set exponent = 4 + i_clamped * (0.7 - 4) %}
-        Fade exp: {{ exponent }}
-
         {% set fade = (1 - d_norm) ** exponent %}
-        Fade: {{ fade }}
-
         {% set timeout = window * fade %}
-        Timeout sec: {{ timeout }}
-
-        Alert active: {{ has_data and age != none and age <= timeout }}
-
-        {% if stamps|length > 1 %}
-          {% set ss = stamps|sort %}
-          {% set diffs = [] %}
-          {% for i in range(1, ss|length) %}
-            {% set diffs = diffs + [ ss[i] - ss[i-1] ] %}
-          {% endfor %}
-          {% set total = diffs|sum %}
-          {% set n_diff = diffs|length %}
-          {% if n_diff > 0 %}
-            Avg interval sec: {{ (total / n_diff)|round(1) }}
+        {{ has_data and age != none and age <= timeout }}
+      attribute_templates:
+        raw_entities: >
+          {% set raw = states
+            | selectattr('entity_id','match','^geo_location\.lightning_strike_')
+            | list %}
+          {% set raw_entities = raw | length %}
+          {{ raw_entities }}
+        unique_strikes: >
+          {% set raw = states
+            | selectattr('entity_id','match','^geo_location\.lightning_strike_')
+            | list %}
+          {% set uniq = raw
+            | unique(attribute='attributes.external_id')
+            | list %}
+          {{ uniq | length }}
+        distances: >
+          {% set raw = states
+             | selectattr('entity_id','match','^geo_location\.lightning_strike_')
+             | list %}
+          {% set uniq = raw
+             | unique(attribute='attributes.external_id')
+             | list %}
+          {% set distances = uniq
+             | map(attribute='state')
+             | map('float')
+             | list %}
+          {{ distances }}
+        timestamps: >
+          {% set raw = states
+             | selectattr('entity_id','match','^geo_location\\.lightning_strike_')
+             | list %}
+          {% set uniq = raw
+             | unique(attribute='attributes.external_id')
+             | list %}
+          {% set stamps = uniq
+             | map(attribute='attributes.publication_date')
+             | map('as_timestamp')
+             | list %}
+          {{ stamps }}
+        has_data: >
+          {% set raw = states
+             | selectattr('entity_id','match','^geo_location\\.lightning_strike_')
+             | list %}
+          {% set uniq = raw
+             | unique(attribute='attributes.external_id')
+             | list %}
+          {% set distances = uniq
+             | map(attribute='state')
+             | map('float')
+             | list %}
+          {% set stamps = uniq
+             | map(attribute='attributes.publication_date')
+             | map('as_timestamp')
+             | list %}
+          {% set has_data = distances|length > 0 and stamps|length > 0 %}
+          {{ has_data }}
+        now_ts: >
+          {% set now_ts = as_timestamp(now()) %}
+          {{ now_ts }}
+        closest_dist: >
+          {% set raw = states
+             | selectattr('entity_id','match','^geo_location\\.lightning_strike_')
+             | list %}
+          {% set uniq = raw
+             | unique(attribute='attributes.external_id')
+             | list %}
+          {% set distances = uniq
+             | map(attribute='state')
+             | map('float')
+             | list %}
+          {% if distances %}
+            {% set closest = distances|min %}
           {% else %}
-            Avg interval sec: 0
+            {% set closest = none %}
           {% endif %}
-        {% else %}
-          Avg interval sec: 0
-        {% endif %}
+          {{ closest }}
+        latest_ts: >
+          {% set raw = states
+            | selectattr('entity_id','match','^geo_location\\.lightning_strike_')
+            | list %}
+          {% set uniq = raw
+            | unique(attribute='attributes.external_id')
+            | list %}
+          {% set stamps = uniq
+            | map(attribute='attributes.publication_date')
+            | map('as_timestamp')
+            | list %}
+          {% if stamps %}{% set latest_ts = stamps|max %}{% else %}{% set latest_ts = none %}{% endif %}
+          {{ latest_ts }}
+        age_sec: >
+          {% set raw = states|selectattr('entity_id','match','^geo_location\\.lightning_strike_')|list %}
+          {% set uniq = raw|unique(attribute='attributes.external_id')|list %}
+          {% set stamps = uniq|map(attribute='attributes.publication_date')|map('as_timestamp')|list %}
+          {% set now_ts = as_timestamp(now()) %}
+          {% if stamps %}{% set latest_ts = stamps|max %}{% else %}{% set latest_ts = none %}{% endif %}
+          {% if latest_ts is not none %}{% set age = (now_ts - latest_ts)|int %}{% else %}{% set age = none %}{% endif %}
+          {{ age }}
 
-        {% set pts = uniq | map(attribute='attributes') | list %}
-        {% set n = pts|length %}
-        Max cluster size:
-        {% if n < 1 %}
-          0
-        {% else %}
-          {% set th = 5.0 %}
-          {% set counts = [] %}
-          {% for i in range(n) %}
-            {% set pi = pts[i] %}
-            {% set cnt = 1 %}
-            {% for j in range(n) %}
-              {% if j != i %}
+        strikes_count: >
+          {% set raw = states|selectattr('entity_id','match','^geo_location\\.lightning_strike_')|list %}
+          {% set uniq = raw|unique(attribute='attributes.external_id')|list %}
+          {% set distances = uniq|map(attribute='state')|map('float')|list %}
+          {{ distances|length }}
+
+        raw_norm: >
+          {% set raw = states|selectattr('entity_id','match','^geo_location\\.lightning_strike_')|list %}
+          {% set uniq = raw|unique(attribute='attributes.external_id')|list %}
+          {% set distances = uniq|map(attribute='state')|map('float')|list %}
+          {% set strikes = distances|length %}
+          {% if strikes > 0 %}{% set raw_norm = (strikes - 1) / 9 %}{% else %}{% set raw_norm = 0 %}{% endif %}
+          {{ raw_norm }}
+
+        i_clamped: >
+          {% set raw = states|selectattr('entity_id','match','^geo_location\\.lightning_strike_')|list %}
+          {% set uniq = raw|unique(attribute='attributes.external_id')|list %}
+          {% set distances = uniq|map(attribute='state')|map('float')|list %}
+          {% set strikes = distances|length %}
+          {% if strikes > 0 %}{% set raw_norm = (strikes - 1) / 9 %}{% else %}{% set raw_norm = 0 %}{% endif %}
+          {% if raw_norm < 0 %}
+            {% set i_clamped = 0 %}
+          {% elif raw_norm > 1 %}
+            {% set i_clamped = 1 %}
+          {% else %}
+            {% set i_clamped = raw_norm %}
+          {% endif %}
+          {{ i_clamped }}
+
+        window_sec: >
+          {% set raw = states|selectattr('entity_id','match','^geo_location\\.lightning_strike_')|list %}
+          {% set uniq = raw|unique(attribute='attributes.external_id')|list %}
+          {% set distances = uniq|map(attribute='state')|map('float')|list %}
+          {% set strikes = distances|length %}
+          {% if strikes > 0 %}{% set raw_norm = (strikes - 1) / 9 %}{% else %}{% set raw_norm = 0 %}{% endif %}
+          {% if raw_norm < 0 %}
+           {% set i_clamped = 0 %}
+          {% elif raw_norm > 1 %}
+           {% set i_clamped = 1 %}
+          {% else %}
+            {% set i_clamped = raw_norm %}
+          {% endif %}
+          {% set window = 300 + i_clamped * (1800 - 300) %}
+          {{ window }}
+
+        radius_km: >
+          {% set raw = states|selectattr('entity_id','match','^geo_location\\.lightning_strike_')|list %}
+          {% set uniq = raw|unique(attribute='attributes.external_id')|list %}
+          {% set distances = uniq|map(attribute='state')|map('float')|list %}
+          {% set strikes = distances|length %}
+          {% if strikes > 0 %}{% set raw_norm = (strikes - 1) / 9 %}{% else %}{% set raw_norm = 0 %}{% endif %}
+          {% if raw_norm < 0 %}
+           {% set i_clamped = 0 %}
+          {% elif raw_norm > 1 %}
+            {% set i_clamped = 1 %}
+          {% else %}
+            {% set i_clamped = raw_norm %}
+          {% endif %}
+          {% set radius = 10 + i_clamped * (50 - 10) %}
+          {{ radius }}
+
+        distance_norm: >
+          {% set raw = states|selectattr('entity_id','match','^geo_location\\.lightning_strike_')|list %}
+          {% set uniq = raw|unique(attribute='attributes.external_id')|list %}
+          {% set distances = uniq|map(attribute='state')|map('float')|list %}
+          {% if distances %}
+            {% set closest = distances|min %}
+          {% else %}
+            {% set closest = none %}
+          {% endif %}
+          {% set strikes = distances|length %}
+          {% if strikes > 0 %}{% set raw_norm = (strikes - 1) / 9 %}{% else %}{% set raw_norm = 0 %}{% endif %}
+          {% if raw_norm < 0 %}
+            {% set i_clamped = 0 %}
+          {% elif raw_norm > 1 %}
+            {% set i_clamped = 1 %}
+          {% else %}
+            {% set i_clamped = raw_norm %}
+          {% endif %}
+          {% set radius = 10 + i_clamped * (50 - 10) %}
+          {% set epsilon = 0.99 %}
+          {% if closest is not none %}
+            {% set d_norm = closest / radius %}
+            {% if d_norm > epsilon %}{% set d_norm = epsilon %}{% endif %}
+          {% else %}
+            {% set d_norm = 1 %}
+          {% endif %}
+          {{ d_norm }}
+
+        fade_exp: >
+          {% set raw = states|selectattr('entity_id','match','^geo_location\\.lightning_strike_')|list %}
+          {% set uniq = raw|unique(attribute='attributes.external_id')|list %}
+          {% set distances = uniq|map(attribute='state')|map('float')|list %}
+          {% set strikes = distances|length %}
+          {% if strikes > 0 %}{% set raw_norm = (strikes - 1) / 9 %}{% else %}{% set raw_norm = 0 %}{% endif %}
+          {% set exponent = 4 + raw_norm * (0.7 - 4) %}
+          {{ exponent }}
+
+        fade: >
+          {% set raw = states|selectattr('entity_id','match','^geo_location\\.lightning_strike_')|list %}
+          {% set uniq = raw|unique(attribute='attributes.external_id')|list %}
+          {% set distances = uniq|map(attribute='state')|map('float')|list %}
+          {% if distances %}{% set closest = distances|min %}{% else %}{% set closest = none %}{% endif %}
+          {% set strikes = distances|length %}
+          {% if strikes > 0 %}{% set raw_norm = (strikes - 1) / 9 %}{% else %}{% set raw_norm = 0 %}{% endif %}
+          {% if raw_norm < 0 %}
+            {% set i_clamped = 0 %}
+          {% elif raw_norm > 1 %}
+            {% set i_clamped = 1 %}
+          {% else %}
+            {% set i_clamped = raw_norm %}
+          {% endif %}
+          {% set radius = 10 + i_clamped * (50 - 10) %}
+          {% set epsilon = 0.99 %}
+          {% if closest is not none %}
+            {% set d_norm = closest / radius %}
+            {% if d_norm > epsilon %}{% set d_norm = epsilon %}{% endif %}
+          {% else %}
+            {% set d_norm = 1 %}
+          {% endif %}
+          {% set exponent = 4 + i_clamped * (0.7 - 4) %}
+          {% set fade = (1 - d_norm) ** exponent %}
+          {{ fade }}
+
+        timeout_sec: >
+          {% set raw = states|selectattr('entity_id','match','^geo_location\\.lightning_strike_')|list %}
+          {% set uniq = raw|unique(attribute='attributes.external_id')|list %}
+          {% set distances = uniq|map(attribute='state')|map('float')|list %}
+          {% set stamps = uniq|map(attribute='attributes.publication_date')|map('as_timestamp')|list %}
+          {% set now_ts = as_timestamp(now()) %}
+          {% if distances %}{% set closest = distances|min %}{% else %}{% set closest = none %}{% endif %}
+          {% set strikes = distances|length %}
+          {% if strikes > 0 %}{% set raw_norm = (strikes - 1) / 9 %}{% else %}{% set raw_norm = 0 %}{% endif %}
+          {% if raw_norm < 0 %}
+            {% set i_clamped = 0 %}
+          {% elif raw_norm > 1 %}
+            {% set i_clamped = 1 %}
+          {% else %}
+            {% set i_clamped = raw_norm %}
+          {% endif %}
+          {% set window = 300 + i_clamped * (1800 - 300) %}
+          {% set radius = 10 + i_clamped * (50 - 10) %}
+          {% set epsilon = 0.99 %}
+          {% if closest is not none %}
+            {% set d_norm = closest / radius %}
+            {% if d_norm > epsilon %}{% set d_norm = epsilon %}{% endif %}
+          {% else %}
+            {% set d_norm = 1 %}
+          {% endif %}
+          {% set exponent = 4 + i_clamped * (0.7 - 4) %}
+          {% set fade = (1 - d_norm) ** exponent %}
+          {% set timeout = window * fade %}
+          {{ timeout }}
+
+        avg_interval_sec: >-
+          {% set diffs = [] %}
+          {% for idx in range(1, stamps|length) %}
+            {% set diffs = diffs + [stamps[idx] - stamps[idx-1]] %}
+          {% endfor %}
+          {% if diffs %}
+            {{ (diffs|sum / diffs|length)|round(1) }}
+          {% else %}
+            0
+          {% endif %}
+        max_cluster_size: >-
+          {% set pts = uniq|map(attribute='attributes')|list %}
+          {% set n = pts|length %}
+          {% if n < 1 %}
+            0
+          {% else %}
+            {% set th = 5.0 %}
+            {% set counts = [] %}
+            {% for i in range(n) %}
+              {% set pi = pts[i] %}
+              {% set cnt = 1 %}
+              {% for j in range(n) %}
+                {% if j != i %}
+                  {% set pj = pts[j] %}
+                  {% set dlat = (pj.latitude - pi.latitude) * 0.01745329252 %}
+                  {% set dlon = (pj.longitude - pi.longitude) * 0.01745329252 %}
+                  {% set a = (dlat/2)**2 + cos(pi.latitude*0.01745329252)*cos(pj.latitude*0.01745329252)*(dlon/2)**2 %}
+                  {% set c = 2 * asin(a**0.5) %}
+                  {% set dist = 6371.0 * c %}
+                  {% if dist <= th %}
+                    {% set cnt = cnt + 1 %}
+                  {% endif %}
+                {% endif %}
+              {% endfor %}
+              {% set counts = counts + [cnt] %}
+            {% endfor %}
+            {{ counts|max }}
+          {% endif %}
+        is_cluster: >-
+          {% set pts = uniq|map(attribute='attributes')|list %}
+          {% set n = pts|length %}
+          {% if n < 2 %}
+            false
+          {% else %}
+            {% set th = 5.0 %}
+            {% set found = false %}
+            {% for i in range(n) %}
+              {% for j in range(i+1, n) %}
+                {% set pi = pts[i] %}
                 {% set pj = pts[j] %}
                 {% set dlat = (pj.latitude - pi.latitude) * 0.01745329252 %}
                 {% set dlon = (pj.longitude - pi.longitude) * 0.01745329252 %}
-                {% set a = (dlat/2)**2
-                           + cos(pi.latitude*0.01745329252)
-                           * cos(pj.latitude*0.01745329252)
-                           * (dlon/2)**2 %}
+                {% set a = (dlat/2)**2 + cos(pi.latitude*0.01745329252)*cos(pj.latitude*0.01745329252)*(dlon/2)**2 %}
                 {% set c = 2 * asin(a**0.5) %}
                 {% set dist = 6371.0 * c %}
                 {% if dist <= th %}
-                  {% set cnt = cnt + 1 %}
+                  {% set found = true %}
+                  {% break %}
                 {% endif %}
-              {% endif %}
+              {% endfor %}
+              {% if found %}{% break %}{% endif %}
             {% endfor %}
-            {% set counts = counts + [cnt] %}
-          {% endfor %}
-          {{ counts|length > 0 and (counts|max) or 0 }}
-        {% endif %}
-
-        Is cluster:
-        {% set th = 5.0 %}
-        {% if n < 2 %}
-          false
-        {% else %}
-          {% set found = false %}
-          {% for i in range(n) %}
-            {% for j in range(i+1, n) %}
-              {% set pi = pts[i] %}
-              {% set pj = pts[j] %}
-              {% set dlat = (pj.latitude - pi.latitude) * 0.01745329252 %}
-              {% set dlon = (pj.longitude - pi.longitude) * 0.01745329252 %}
-              {% set a = (dlat/2)**2
-                         + cos(pi.latitude*0.01745329252)
-                         * cos(pj.latitude*0.01745329252)
-                         * (dlon/2)**2 %}
-              {% set c = 2 * asin(a**0.5) %}
-              {% set dist = 6371.0 * c %}
-              {% if dist <= th %}
-                {% set found = true %}
-                {% break %}
-              {% endif %}
-            {% endfor %}
-            {% if found %}{% break %}{% endif %}
-          {% endfor %}
-          {{ found }}
-        {% endif %}
+            {{ found }}
+          {% endif %}
