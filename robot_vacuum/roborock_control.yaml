@@ -1,0 +1,52 @@
+- platform: template
+  sensors:
+    roborock_control:
+      friendly_name: "Roborock Control"
+      device_class: problem
+      value_template: >
+        {%- set last_end   = as_timestamp(states('sensor.roborock_s8_pro_ultra_last_clean_end')) -%}
+        {%- set days_since = (now().timestamp() - last_end) / 86400 -%}
+        {%- set area      = states('sensor.roborock_s8_pro_ultra_cleaning_area') | float -%}
+        {%- set runtime   = states('sensor.roborock_s8_pro_ultra_cleaning_time') | float -%}
+        {%- set eff       = runtime > 0 and (area/runtime*100) or 0 -%}
+        {%- if eff > 1 -%}{%- set eff = 1 -%}{%- endif -%}
+        {%- set fp        = states('sensor.roborock_apartment_footprint') | float -%}
+        {%- set weekly    = states('sensor.roborock_weekly_cleaned_area')  | float -%}
+        {%- set coverage  = fp > 0 and (weekly/fp) or 0 -%}
+        {%- if coverage > 1 -%}{%- set coverage = 1 -%}{%- endif -%}
+        {%- set rec       = coverage -%}
+        {%- set mop       = is_state('binary_sensor.roborock_s8_pro_ultra_mop_attached','on') | int -%}
+        {%- set clean_score = eff*0.5 + rec*0.3 + mop*0.2 -%}
+        {%- set quality     = clean_score >= 0.7 and 'good'
+                           or clean_score >= 0.4 and 'moderate'
+                           or 'poor' -%}
+        {{ quality != 'good' and 'on' or 'off' }}
+      attribute_templates:
+        cleanliness_score: >
+          {{ (clean_score * 100) | round(1) }}
+        quality: >
+          {{ quality }}
+        cleaning_mode: >
+          {{ quality in ['good','moderate'] and 'vacuum_and_mop' or 'vacuum' }}
+        fan_speed: >
+          {{ quality == 'good' and 'max'
+           or quality == 'moderate' and 'balanced'
+           or 'quiet' }}
+        mop_mode: >
+          {{ quality == 'good' and 'deep_plus'
+           or quality == 'moderate' and 'standard'
+           or 'off' }}
+        mop_intensity: >
+          {{ quality == 'good' and 'intense'
+           or quality == 'moderate' and 'moderate'
+           or 'off' }}
+        dock_empty_mode: >
+          {{ quality == 'good' and 'smart'
+           or quality == 'moderate' and 'balanced'
+           or 'light' }}
+        apartment_footprint: >
+          {{ fp }} m²
+        weekly_cleaned_area: >
+          {{ weekly }} m²
+        coverage_ratio: >
+          {{ (coverage * 100) | round(1) }} %
