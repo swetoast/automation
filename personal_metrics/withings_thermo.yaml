@@ -1,78 +1,45 @@
-sensor:
   - platform: template
     sensors:
-      withings_thermo_calibrated_temperature:
-        friendly_name: "Withings Thermo Calibrated Temperature"
+      withings_thermo_temperature:
+        friendly_name: "Withings Thermo Temperature"
         device_class: temperature
         unit_of_measurement: "°C"
-
         value_template: >-
-          {% set raw_str = states('sensor.withings_body_temperature') %}
-          {% set amb_str = states('sensor.withings_temperature') %}
-          {% set invalid = ['unknown', 'unavailable', 'None'] %}
-
-          {% if raw_str in invalid or amb_str in invalid %}
+          {% set raw = states('sensor.withings_body_temperature') %}
+          {% set amb = states('sensor.withings_temperature') %}
+          {% set invalid = ['unknown','unavailable','None'] %}
+          {% if raw in invalid or amb in invalid %}
             unavailable
           {% else %}
             {% set ε = 0.98 %}
             {% set a = 15.87 %}
             {% set b = 0.655 %}
-            {% set offset = 3.4 %}
-            {% set t_raw_k = (raw_str | float) + 273.15 %}
-            {% set t_amb_k = (amb_str | float) + 273.15 %}
-            {% set numer    = t_raw_k**4 - (1 - ε) * t_amb_k**4 %}
-            {% set t_skin_k = (numer / ε) ** 0.25 %}
+            {% set offset = 3.24 %}
+
+            {% set t_raw_k = (raw | float) + 273.15 %}
+            {% set t_amb_k = (amb | float) + 273.15 %}
+            {% set numer    = t_raw_k**4 - (1-ε)*t_amb_k**4 %}
+            {% set t_skin_k = (numer/ε)**0.25 %}
             {% set t_skin_c = t_skin_k - 273.15 %}
 
             {{ ((a + b * t_skin_c) - offset) | round(1) }}
           {% endif %}
 
         attribute_templates:
-          raw_ir_temp:
-            friendly_name: "Raw IR Temp"
-            unit_of_measurement: "°C"
-            value_template: "{{ states('sensor.withings_body_temperature') }}"
-
-          ambient_temp:
-            friendly_name: "Ambient Temp"
-            unit_of_measurement: "°C"
-            value_template: "{{ states('sensor.withings_temperature') }}"
-
-          corrected_skin_temp:
-            friendly_name: "Corrected Skin Temp"
-            unit_of_measurement: "°C"
-            value_template: >-
-              {% set raw_str = states('sensor.withings_body_temperature') %}
-              {% set amb_str = states('sensor.withings_temperature') %}
-              {% set invalid = ['unknown','unavailable','None'] %}
-              {% if raw_str not in invalid and amb_str not in invalid %}
-                {% set ε = 0.98 %}
-                {% set t_raw_k = (raw_str | float) + 273.15 %}
-                {% set t_amb_k = (amb_str | float) + 273.15 %}
-                {% set numer    = t_raw_k**4 - (1 - ε) * t_amb_k**4 %}
-                {% set t_skin_k = (numer / ε) ** 0.25 %}
-                {{ (t_skin_k - 273.15) | round(1) }}
-              {% else %}
-                unavailable
-              {% endif %}
-
-          raw_mapped_core_temp:
+          core_before_offset:
             friendly_name: "Core Temp Before Offset"
             unit_of_measurement: "°C"
             value_template: >-
-              {% set raw_str = states('sensor.withings_body_temperature') %}
-              {% set amb_str = states('sensor.withings_temperature') %}
-              {% set invalid = ['unknown','unavailable','None'] %}
-              {% if raw_str not in invalid and amb_str not in invalid %}
-                {% set ε = 0.98 %}
-                {% set a = 15.87 %}
-                {% set b = 0.655 %}
-                {% set t_raw_k = (raw_str | float) + 273.15 %}
-                {% set t_amb_k = (amb_str | float) + 273.15 %}
-                {% set numer    = t_raw_k**4 - (1 - ε) * t_amb_k**4 %}
-                {% set t_skin_k = (numer / ε) ** 0.25 %}
-                {% set t_skin_c = t_skin_k - 273.15 %}
-                {{ (a + b * t_skin_c) | round(1) }}
+              {% if raw not in invalid and amb not in invalid %}
+                {{ (15.87 + 0.655 * ( ( ( ( (raw|float)+273.15 )**4
+                     - (1-0.98)*( (amb|float)+273.15 )**4 )/0.98 )**0.25
+                     - 273.15 ) ) | round(1) }}
               {% else %}
                 unavailable
               {% endif %}
+
+          calibration_method: "a + b·T_skin – offset"
+          calibration_coefficients: "a=15.87, b=0.655"
+          offset: "-3.24 °C"
+          emissivity: "0.98"
+          stefan_boltzmann_constant: "5.670374419e-8"
