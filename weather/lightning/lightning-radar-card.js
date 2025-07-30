@@ -13,18 +13,15 @@ class LightningRadarCard extends HTMLElement {
       this.innerHTML = `<ha-card>Entity "${entityId}" not found</ha-card>`;
       return;
     }
-
     const attr = entity.attributes;
-
-    console.log('Lightning Radar attributes →', attr);
-
-    const theme = getComputedStyle(document.body);
-    const bannerBg = theme.getPropertyValue('--primary-color') || '#2196f3';
-    const bannerText = theme.getPropertyValue('--text-primary-color') || 'white';
 
     const strikesPerHour = attr.avg_interval_sec
       ? (3600 / attr.avg_interval_sec).toFixed(1)
       : 0;
+
+    const theme = getComputedStyle(document.body);
+    const bannerBg = theme.getPropertyValue('--primary-color') || '#2196f3';
+    const bannerText = theme.getPropertyValue('--text-primary-color') || 'white';
 
     const strikeDetails = `
       <div style="font-size:12px; line-height:1.5; padding:10px;">
@@ -33,7 +30,9 @@ class LightningRadarCard extends HTMLElement {
         <p><strong>Closest Distance:</strong> ${
           attr.closest_dist != null ? attr.closest_dist : '—'
         } km</p>
-        <p><strong>Intensity:</strong> ${attr.raw_norm != null ? attr.raw_norm : '—'}</p>
+        <p><strong>Intensity:</strong> ${
+          attr.raw_norm != null ? attr.raw_norm : '—'
+        }</p>
         <p><strong>Strikes/hour:</strong> ${strikesPerHour}</p>
         <p><strong>Warning Radius:</strong> ${attr.radius_km || 0} km</p>
         <p><strong>Warning Window:</strong> ${attr.window_sec || 0} sec</p>
@@ -56,18 +55,17 @@ class LightningRadarCard extends HTMLElement {
           background: ${bannerBg};
           color: ${bannerText};
           padding: 12px;
-          border-radius: 8px 8px 0 0;
-        ">
+          border-radius: 8px 8px 0 0;">
           <div style="font-size:1.2em; font-weight:bold;">
             ⚡ Lightning Status: ${entity.state.toUpperCase()}
           </div>
-          <div style="font-size:12px;">Alert Level: ${attr.alert_level || '—'}</div>
+          <div style="font-size:12px;">
+            Alert Level: ${attr.alert_level || '—'}
+          </div>
         </div>
-
         <div style="display: flex; gap: 20px; padding: 12px;">
           ${strikeDetails}
         </div>
-
         ${radarSection}
       </ha-card>
     `;
@@ -75,10 +73,8 @@ class LightningRadarCard extends HTMLElement {
     const canvas = this.querySelector(`#${canvasId}`);
     if (canvas && canvas.getContext) {
       const ctx = canvas.getContext('2d');
-      const w = canvas.width;
-      const h = canvas.height;
-      const cx = w / 2;
-      const cy = h / 2;
+      const w = canvas.width, h = canvas.height;
+      const cx = w / 2, cy = h / 2;
       const maxR = Math.min(cx, cy) - 10;
       const pxPerKm = maxR / (attr.radius_km || 50);
 
@@ -91,7 +87,7 @@ class LightningRadarCard extends HTMLElement {
         ctx.arc(cx, cy, km * pxPerKm, 0, 2 * Math.PI);
         ctx.stroke();
       }
-      
+
       ctx.font = '24px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
@@ -99,7 +95,6 @@ class LightningRadarCard extends HTMLElement {
 
       const distances = Array.isArray(attr.distances) ? attr.distances : [];
       distances.sort((a, b) => a - b);
-
       distances.forEach((km, i) => {
         const angle = (i / (distances.length || 1)) * 2 * Math.PI;
         const r = km * pxPerKm;
