@@ -102,11 +102,14 @@
     'passed': (ns.values.outlet_overloaded and not ns.values.ov_comf),
     'mode': 'off' },
 
-  { 'name': 'Window open & occupied → fan_only',
-    'passed': ((ns.values.window_open and ns.values.motion_living)
-               or (ns.values.window_bed_door and ns.values.home_state)),
-    'mode': 'fan_only' }
-] %}
+  {  
+  'name': 'Window open & cooling → fan_only',
+  'passed': (
+    (ns.values.window_open or ns.values.window_bed_door)
+    and ns.values.prev_mode in ['cool','dry']
+  ),
+  'mode': 'fan_only'
+}
 
 {% set rules = rules + [
   { 'name': 'Price extreme → off',
