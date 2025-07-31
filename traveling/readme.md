@@ -1,6 +1,6 @@
 # Västtrafik Departures Card
 
-A supercharged Lovelace card for Home Assistant that displays real-time Västtrafik public transport departures with countdowns, progress bars, and full theme support.
+A Lovelace card for Home Assistant that displays real-time Västtrafik public transport departures with countdowns, progress bars, and full theme support.
 
 ---
 
