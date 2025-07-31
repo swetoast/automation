@@ -197,7 +197,6 @@ class VasttrafikDeparturesCard extends LitElement {
     const [h, m]  = timeStr.split(':').map(v => parseInt(v, 10));
     const delay   = Number(attrs.delay) || 0;
 
-    // calculate adjusted departure Date
     const now   = new Date(this._now);
     let   dep   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m + delay);
     if (dep < now) dep.setDate(dep.getDate() + 1);
@@ -206,7 +205,6 @@ class VasttrafikDeparturesCard extends LitElement {
     const MAX     = 15;
     const pct     = Math.min(100, Math.max(0, Math.round(((MAX - diffMin) / MAX) * 100)));
 
-    // display adjusted time
     const displayTime = dep.toTimeString().slice(0, 5);
 
     const direction   = (attrs.direction || '—').split(',')[0].trim();
