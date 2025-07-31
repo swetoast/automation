@@ -1,238 +1,128 @@
-/**
- * vasttrafik-departures-card.js
- * A supercharged Västtrafik departures card.
- */
-
-import { LitElement, html, css } from 'lit';
-
-class VasttrafikDeparturesCard extends LitElement {
-  static get properties() {
-    return {
-      hass:   { type: Object },
-      config: { type: Object },
-      _now:   { type: Number }
-    };
-  }
-
-  constructor() {
-    super();
-    this._now = Date.now();
-  }
-
-  connectedCallback() {
-    super.connectedCallback();
-    this._timer = setInterval(() => (this._now = Date.now()), 60_000);
-  }
-
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    clearInterval(this._timer);
-  }
-
-  static get styles() {
-    return css`
-      :host {
-        display: block;
-        font-family: var(--ha-font-body, sans-serif);
-      }
-      ha-card {
-        padding: 16px;
-        border-radius: 8px;
-        background: var(
-          --card-background-color,
-          var(--background-card)
-        );
-        color: var(--primary-text-color);
-        box-shadow: var(
-          --ha-card-box-shadow,
-          0 2px 4px rgba(0,0,0,0.1)
-        );
-      }
-      .header {
-        display: flex;
-        align-items: center;
-        margin-bottom: 16px;
-      }
-      .logo {
-        width: 36px;
-        height: 36px;
-        margin-right: 8px;
-      }
-      .title {
-        font-size: 1.2em;
-        font-weight: 500;
-        color: var(--primary-text-color);
-      }
-      .departures {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-        gap: 16px;
-      }
-      .departure {
-        border: 1px solid var(--divider-color);
-        border-radius: 6px;
-        padding: 12px;
-        background: var(--card-background-color);
-      }
-      .dep-header {
-        display: flex;
-        align-items: center;
-        margin-bottom: 8px;
-      }
-      .dep-header ha-icon {
-        color: var(--primary-color);
-        margin-right: 6px;
-      }
-      .line {
-        font-weight: 600;
-        margin-right: 4px;
-        color: var(--primary-text-color);
-      }
-      .time {
-        font-size: 1.2em;
-        margin-right: 6px;
-        color: var(--primary-text-color);
-      }
-      .countdown {
-        font-size: 0.9em;
-        font-weight: 500;
-        padding: 2px 6px;
-        border-radius: 4px;
-        color: white;
-      }
-      /* theme overrides */
-      .countdown.safe   { background: var(--vt-countdown-safe,   var(--success-color, #4caf50)); }
-      .countdown.warn   { background: var(--vt-countdown-warn,   var(--warning-color, #ff9800)); }
-      .countdown.alert  { background: var(--vt-countdown-alert,  var(--error-color,   #f44336)); }
-
-      .progress {
-        position: relative;
-        height: 6px;
-        background: var(--vt-progress-bg, var(--divider-color));
-        border-radius: 3px;
-        overflow: hidden;
-        margin-bottom: 12px;
-      }
-      .progress-fill {
-        height: 100%;
-        background: var(--vt-progress-fill, var(--primary-color));
-        transition: width 0.5s ease-out;
-      }
-
-      .grid {
-        display: grid;
-        grid-template-columns: auto 1fr;
-        row-gap: 6px;
-        column-gap: 12px;
-      }
-      .label {
-        font-size: 0.75em;
-        color: var(--secondary-text-color);
-        text-transform: uppercase;
-      }
-      .value {
-        font-size: 0.9em;
-        color: var(--primary-text-color);
-      }
-      .value.delay {
-        color: var(--vt-delay-color, var(--error-color));
-      }
-    `;
-  }
-
+class VTDeparturesCard extends HTMLElement {
   setConfig(config) {
-    if (!config.sensors || !Array.isArray(config.sensors) || !config.sensors.length) {
-      throw new Error("You must define at least one sensor in 'sensors'");
+    if (!config.entities || !Array.isArray(config.entities)) {
+      throw new Error("You must define an array of `entities`");
     }
-    if (!config.logo) {
-      throw new Error("You must provide a 'logo' URL");
-    }
-    this.config = config;
+    this._config = config;
   }
 
   getCardSize() {
-    return 1 + this.config.sensors.length * 2;
+    return 3;
   }
 
-  render() {
-    if (!this.config || !this.hass) return html``;
-
-    return html`
-      <ha-card>
-        <div class="header">
-          <img src="${this.config.logo}" class="logo" alt="Logo" />
-          <div class="title">Västtrafik Departures</div>
-        </div>
-        <div class="departures">
-          ${this.config.sensors.map(id => this._renderDeparture(this.hass.states[id]))}
-        </div>
-      </ha-card>
-    `;
-  }
-
-  _renderDeparture(entity) {
-    if (!entity || ['unavailable','unknown'].includes(entity.state)) {
-      return html`
-        <div class="departure">
-          <div class="dep-header">
-            <div class="line">—</div>
-            <div class="time">—</div>
-            <div class="countdown safe">—</div>
-          </div>
-          <div class="progress">
-            <div class="progress-fill" style="width:0%"></div>
-          </div>
-          <div class="grid">
-            ${['Direction','Track','From','To','Accessibility','Delay'].map(label => html`
-              <div class="label">${label}</div><div class="value">—</div>
-            `)}
-          </div>
+  set hass(hass) {
+    if (!this.content) {
+      const shadow = this.attachShadow({ mode: 'open' });
+      shadow.innerHTML = `
+        <style>
+          .card {
+            padding: 16px;
+            font-family: sans-serif;
+          }
+          .header {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-bottom: 8px;
+          }
+          .departure {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 4px 0;
+          }
+          .line {
+            font-weight: bold;
+            margin-right: 8px;
+            width: 2em;
+          }
+          .destination {
+            flex-grow: 1;
+            margin-right: 8px;
+          }
+          .time {
+            font-family: monospace;
+            margin-right: 4px;
+            width: 4.5em;
+            text-align: right;
+          }
+          .triangle {
+            width: 0;
+            height: 0;
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-bottom: 10px solid var(--vt-delay-color, #b71c1c);
+            margin-left: 6px;
+          }
+          .countdown {
+            font-size: 0.9em;
+            color: #666;
+            width: 5em;
+            text-align: right;
+          }
+        </style>
+        <div class="card">
+          <div class="header" id="header"></div>
+          <div id="departures"></div>
         </div>
       `;
+      this.shadowRoot.appendChild(shadow);
+      this.content = this.shadowRoot.querySelector('.card');
     }
 
-    const attrs   = entity.attributes;
-    const timeStr = entity.state;
-    const [h,m]   = timeStr.split(':').map(v => parseInt(v,10));
-    const now     = new Date(this._now);
-    let depDate   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m);
-    if (depDate < now) depDate.setDate(depDate.getDate() + 1);
+    const config = this._config;
+    const now = new Date();
 
-    const diffMin = Math.max(0, Math.round((depDate - now)/60000));
-    const MAX     = 15;
-    const pct     = Math.min(100, Math.max(0, Math.round(((MAX - diffMin)/MAX)*100)));
+    const title = config.title || 'Departures';
+    this.shadowRoot.querySelector('#header').textContent = title;
 
-    const direction   = (attrs.direction||'—').split(',')[0].trim();
-    const delay       = attrs.delay||0;
-    const delayText   = delay>0 ? `+${delay} min` : 'On time';
-    const delayClass  = delay>0 ? 'delay' : '';
-    const icon        = attrs.icon||'mdi:bus';
-    const countdownCls = diffMin<=3 ? 'alert'
-                      : diffMin<=10? 'warn'
-                      : 'safe';
+    const deps = (config.entities || [])
+      .map(entityId => hass.states[entityId])
+      .filter(state => state && state.state)
+      .map(state => {
 
-    return html`
-      <div class="departure">
-        <div class="dep-header">
-          <ha-icon .icon="${icon}"></ha-icon>
-          <div class="line">Line ${attrs.line}</div>
-          <div class="time">${timeStr}</div>
-          <div class="countdown ${countdownCls}">in ${diffMin} min</div>
-        </div>
-        <div class="progress">
-          <div class="progress-fill" style="width:${pct}%;"></div>
-        </div>
-        <div class="grid">
-          <div class="label">Direction</div><div class="value">${direction}</div>
-          <div class="label">Track</div><div class="value">${attrs.track||'—'}</div>
-          <div class="label">From</div><div class="value">${attrs.from||'—'}</div>
-          <div class="label">To</div><div class="value">${attrs.to||'—'}</div>
-          <div class="label">Accessibility</div><div class="value">${attrs.accessibility||'—'}</div>
-          <div class="label">Delay</div><div class="value ${delayClass}">${delayText}</div>
-        </div>
-      </div>
-    `;
+        const [h, m] = state.state.split(':').map(Number);
+        const delay = Number(state.attributes.delay) || 0;
+        
+        const depDate = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate(),
+          h,
+          m + delay,
+        );
+
+        return {
+          line: state.attributes.line || '',
+          destination: state.attributes.to || state.attributes.direction || '',
+          delay,
+          depDate,
+        };
+      })
+      .sort((a, b) => a.depDate - b.depDate);
+
+    const container = this.shadowRoot.querySelector('#departures');
+    container.innerHTML = '';
+
+    deps.forEach(dep => {
+      const adjustedTime = dep.depDate.toTimeString().slice(0, 5);
+      const minutesLeft = Math.round((dep.depDate - now) / 60000);
+      const countdownStr =
+        minutesLeft > 0 ? `in ${minutesLeft} min`
+        : minutesLeft === 0 ? 'now'
+        : 'departed';
+
+      const row = document.createElement('div');
+      row.className = 'departure';
+      row.innerHTML = `
+        <div class="line">${dep.line}</div>
+        <div class="destination">${dep.destination}</div>
+        <div class="time">${adjustedTime}</div>
+        ${dep.delay > 0 ? '<div class="triangle" title="Delayed"></div>' : ''}
+        <div class="countdown">${countdownStr}</div>
+      `;
+      container.appendChild(row);
+    });
   }
 }
 
-customElements.define('vasttrafik-departures-card', VasttrafikDeparturesCard);
+customElements.define('vt-departures-card', VTDeparturesCard);
