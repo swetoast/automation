@@ -1,241 +1,130 @@
-/**
- * vasttrafik-departures-card.js
- * A Västtrafik departures card.
- */
-
-import { LitElement, html, css } from 'lit';
-
-class VasttrafikDeparturesCard extends LitElement {
-  static get properties() {
-    return {
-      hass:   { type: Object },
-      config: { type: Object },
-      _now:   { type: Number }
-    };
-  }
-
-  constructor() {
-    super();
-    this._now = Date.now();
-  }
-
-  connectedCallback() {
-    super.connectedCallback();
-    this._timer = setInterval(() => (this._now = Date.now()), 60_000);
-  }
-
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    clearInterval(this._timer);
-  }
-
-  static get styles() {
-    return css`
-      :host {
-        display: block;
-        font-family: var(--ha-font-body, sans-serif);
-      }
-      ha-card {
-        padding: 16px;
-        border-radius: 8px;
-        background: var(--card-background-color, var(--background-card));
-        color: var(--primary-text-color);
-        box-shadow: var(--ha-card-box-shadow, 0 2px 4px rgba(0,0,0,0.1));
-      }
-      .header {
-        display: flex;
-        align-items: center;
-        margin-bottom: 16px;
-      }
-      .logo {
-        width: 36px;
-        height: 36px;
-        margin-right: 8px;
-      }
-      .title {
-        font-size: 1.2em;
-        font-weight: 500;
-        color: var(--primary-text-color);
-      }
-      .departures {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-        gap: 16px;
-      }
-      .departure {
-        border: 1px solid var(--divider-color);
-        border-radius: 6px;
-        padding: 12px;
-        background: var(--card-background-color);
-      }
-      .dep-header {
-        display: flex;
-        align-items: center;
-        margin-bottom: 8px;
-      }
-      .dep-header ha-icon {
-        color: var(--primary-color);
-        margin-right: 6px;
-      }
-      .line {
-        font-weight: 600;
-        margin-right: 8px;
-        color: var(--primary-text-color);
-      }
-      .time {
-        font-size: 1.2em;
-        margin-right: 4px;
-        color: var(--primary-text-color);
-      }
-      .delay-triangle {
-        width: 0;
-        height: 0;
-        border-left: 6px solid transparent;
-        border-right: 6px solid transparent;
-        border-bottom: 10px solid var(--vt-delay-color, var(--error-color, #f44336));
-        margin: 0 6px;
-      }
-      .countdown {
-        font-size: 0.9em;
-        font-weight: 500;
-        padding: 2px 6px;
-        border-radius: 4px;
-        color: white;
-      }
-      .countdown.safe  { background: var(--vt-countdown-safe,   var(--success-color, #4caf50)); }
-      .countdown.warn  { background: var(--vt-countdown-warn,   var(--warning-color, #ff9800)); }
-      .countdown.alert { background: var(--vt-countdown-alert,  var(--error-color,   #f44336)); }
-
-      .progress {
-        position: relative;
-        height: 6px;
-        background: var(--vt-progress-bg, var(--divider-color));
-        border-radius: 3px;
-        overflow: hidden;
-        margin-bottom: 12px;
-      }
-      .progress-fill {
-        height: 100%;
-        background: var(--vt-progress-fill, var(--primary-color));
-        transition: width 0.5s ease-out;
-      }
-
-      .grid {
-        display: grid;
-        grid-template-columns: auto 1fr;
-        row-gap: 6px;
-        column-gap: 12px;
-      }
-      .label {
-        font-size: 0.75em;
-        color: var(--secondary-text-color);
-        text-transform: uppercase;
-      }
-      .value {
-        font-size: 0.9em;
-        color: var(--primary-text-color);
-      }
-      .value.delay {
-        color: var(--vt-delay-color, var(--error-color));
-      }
-    `;
-  }
-
+class VasttrafikTableCard extends HTMLElement {
   setConfig(config) {
-    if (!config.sensors || !Array.isArray(config.sensors) || !config.sensors.length) {
+    if (!Array.isArray(config.sensors) || !config.sensors.length) {
       throw new Error("You must define at least one sensor in 'sensors'");
     }
-    if (!config.logo) {
-      throw new Error("You must provide a 'logo' URL");
-    }
-    this.config = config;
+    this.config      = config;
+    this.showDelay   = config.show_delay !== false;
+    this.delayColor  = config.delay_color   || "var(--error-color)";
+    this.earlyColor  = config.early_color   || "var(--accent-color)";
+    this.emptyText   = config.empty_text    || "No departures available";
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    this._render();
   }
 
   getCardSize() {
-    return 1 + this.config.sensors.length * 2;
+    return this.config.sensors.length + (this.config.title ? 1 : 0);
   }
 
-  render() {
-    if (!this.config || !this.hass) return html``;
+  _render() {
+    if (!this.config || !this._hass) return;
+    this.innerHTML = "";
+    const card = document.createElement("ha-card");
 
-    return html`
-      <ha-card>
-        <div class="header">
-          <img src="${this.config.logo}" class="logo" alt="Logo" />
-          <div class="title">Västtrafik Departures</div>
-        </div>
-        <div class="departures">
-          ${this.config.sensors.map(id => this._renderDeparture(this.hass.states[id]))}
-        </div>
-      </ha-card>
-    `;
-  }
+    if (this.config.title) {
+      const header = document.createElement("div");
+      header.style.display    = "flex";
+      header.style.alignItems = "center";
+      header.style.padding    = "8px";
 
-  _renderDeparture(entity) {
-    if (!entity || ['unavailable','unknown'].includes(entity.state)) {
-      return html`
-        <div class="departure">
-          <div class="dep-header">
-            <div class="line">—</div>
-            <div class="time">—</div>
-            <div class="countdown safe">—</div>
-          </div>
-          <div class="progress">
-            <div class="progress-fill" style="width:0%"></div>
-          </div>
-          <div class="grid">
-            ${['Direction','Track','From','To','Accessibility','Delay'].map(label => html`
-              <div class="label">${label}</div><div class="value">—</div>
-            `)}
-          </div>
-        </div>
-      `;
+      const h = document.createElement("h1");
+      h.textContent    = this.config.title;
+      h.style.margin   = "0";
+      h.style.fontSize = "1.2em";
+      header.appendChild(h);
+
+      if (this.config.logo) {
+        const img = document.createElement("img");
+        img.src             = this.config.logo;
+        img.alt             = "Logo";
+        img.style.height    = "24px";
+        img.style.width     = "24px";
+        img.style.objectFit = "contain";
+        img.style.marginLeft= "auto";
+        header.appendChild(img);
+      }
+
+      card.appendChild(header);
     }
 
-    const attrs   = entity.attributes;
-    const timeStr = entity.state;
-    const [h, m]  = timeStr.split(':').map(v => parseInt(v, 10));
-    const delay   = Number(attrs.delay) || 0;
+    const table = document.createElement("table");
+    table.style.width          = "100%";
+    table.style.borderCollapse = "collapse";
 
-    const now   = new Date(this._now);
-    let   dep   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m + delay);
-    if (dep < now) dep.setDate(dep.getDate() + 1);
+    const thead  = document.createElement("thead");
+    const headTr = document.createElement("tr");
+    ["Time","Line","Destination","Platform","Status"].forEach(txt => {
+      const th = document.createElement("th");
+      th.textContent     = txt;
+      th.style.padding   = "8px";
+      th.style.textAlign = "center";
+      th.style.background= "var(--divider-color-light)";
+      headTr.appendChild(th);
+    });
+    thead.appendChild(headTr);
+    table.appendChild(thead);
 
-    const diffMin = Math.max(0, Math.round((dep - now) / 60000));
-    const MAX     = 15;
-    const pct     = Math.min(100, Math.max(0, Math.round(((MAX - diffMin) / MAX) * 100)));
+    const tbody = document.createElement("tbody");
 
-    const displayTime = dep.toTimeString().slice(0, 5);
+    const validSensors = this.config.sensors.filter(id => {
+      const st = this._hass.states[id];
+      return st && st.state && st.state !== "unavailable" && st.state !== "";
+    });
 
-    const direction   = (attrs.direction || '—').split(',')[0].trim();
-    const countdownCls = diffMin <= 3  ? 'alert'
-                        : diffMin <= 10 ? 'warn'
-                        : 'safe';
+    if (!validSensors.length) {
+      const tr = document.createElement("tr");
+      const td = document.createElement("td");
+      td.colSpan       = 5;
+      td.textContent   = this.emptyText;
+      td.style.padding = "16px";
+      td.style.textAlign = "center";
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+    } else {
 
-    return html`
-      <div class="departure">
-        <div class="dep-header">
-          <ha-icon .icon="${attrs.icon || 'mdi:bus'}"></ha-icon>
-          <div class="line">Line ${attrs.line}</div>
-          <div class="time">${displayTime}</div>
-          ${delay > 0 ? html`<div class="delay-triangle" title="Delayed"></div>` : ''}
-          <div class="countdown ${countdownCls}">in ${diffMin} min</div>
-        </div>
-        <div class="progress">
-          <div class="progress-fill" style="width:${pct}%;"></div>
-        </div>
-        <div class="grid">
-          <div class="label">Direction</div><div class="value">${direction}</div>
-          <div class="label">Track</div><div class="value">${attrs.track || '—'}</div>
-          <div class="label">From</div><div class="value">${attrs.from || '—'}</div>
-          <div class="label">To</div><div class="value">${attrs.to || '—'}</div>
-          <div class="label">Accessibility</div><div class="value">${attrs.accessibility || '—'}</div>
-          <div class="label">Delay</div>
-          <div class="value delay">${delay > 0 ? `+${delay} min` : 'On time'}</div>
-        </div>
-      </div>
-    `;
+      const makeCell = (content, color) => {
+        const td = document.createElement("td");
+        td.textContent    = content;
+        td.style.padding  = "8px";
+        td.style.textAlign= "center";
+        if (color) td.style.color = color;
+        return td;
+      };
+
+      validSensors.forEach(sensorId => {
+        const st = this._hass.states[sensorId];
+        const tr = document.createElement("tr");
+        tr.style.borderBottom = "1px solid var(--divider-color)";
+
+        tr.appendChild(makeCell(st.state));
+        tr.appendChild(makeCell(st.attributes.line  || "-"));
+        tr.appendChild(makeCell(st.attributes.to    || "-"));
+        tr.appendChild(makeCell(st.attributes.track || "-"));
+
+        let statusText = "On time", color = null;
+        if (this.showDelay && st.attributes.delay != null) {
+          const d = Number(st.attributes.delay);
+          if (d > 0) {
+            statusText = `${d} min delayed`;
+            color      = this.delayColor;
+          } else if (d < 0) {
+            statusText = `${Math.abs(d)} min early`;
+            color      = this.earlyColor;
+          }
+        }
+        tr.appendChild(makeCell(statusText, color));
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    table.appendChild(tbody);
+    card.appendChild(table);
+    this.appendChild(card);
   }
 }
 
-customElements.define('vasttrafik-departures-card', VasttrafikDeparturesCard);
+customElements.define("vasttrafik-table-card", VasttrafikTableCard);
