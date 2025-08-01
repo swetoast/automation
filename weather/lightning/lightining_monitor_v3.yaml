@@ -70,7 +70,6 @@
             | list %}
           {% set raw_entities = raw | length %}
           {{ raw_entities }}
-          
         unique_strikes: >
           {% set raw = states
             | selectattr('entity_id','match','^geo_location\.lightning_strike_')
@@ -79,7 +78,6 @@
             | unique(attribute='attributes.external_id')
             | list %}
           {{ uniq | length }}
-          
         distances: >
           {% set raw = states
              | selectattr('entity_id','match','^geo_location\.lightning_strike_')
@@ -92,7 +90,6 @@
              | map('float')
              | list %}
           {{ distances }}
-          
         timestamps: >
           {% set raw = states
              | selectattr('entity_id','match','^geo_location\\.lightning_strike_')
@@ -105,7 +102,6 @@
              | map('as_timestamp')
              | list %}
           {{ stamps }}
-          
         has_data: >
           {% set raw = states
              | selectattr('entity_id','match','^geo_location\\.lightning_strike_')
@@ -123,11 +119,9 @@
              | list %}
           {% set has_data = distances|length > 0 and stamps|length > 0 %}
           {{ has_data }}
-          
         now_ts: >
           {% set now_ts = as_timestamp(now()) %}
           {{ now_ts }}
-          
         closest_dist: >
           {% set raw = states
              | selectattr('entity_id','match','^geo_location\\.lightning_strike_')
@@ -145,7 +139,6 @@
             {% set closest = none %}
           {% endif %}
           {{ closest }}
-          
         latest_ts: >
           {% set raw = states
             | selectattr('entity_id','match','^geo_location\\.lightning_strike_')
@@ -159,7 +152,6 @@
             | list %}
           {% if stamps %}{% set latest_ts = stamps|max %}{% else %}{% set latest_ts = none %}{% endif %}
           {{ latest_ts }}
-          
         age_sec: >
           {% set raw = states|selectattr('entity_id','match','^geo_location\\.lightning_strike_')|list %}
           {% set uniq = raw|unique(attribute='attributes.external_id')|list %}
@@ -324,68 +316,21 @@
           {{ timeout }}
 
         avg_interval_sec: >-
-          {% set diffs = [] %}
-          {% for idx in range(1, stamps|length) %}
-            {% set diffs = diffs + [stamps[idx] - stamps[idx-1]] %}
-          {% endfor %}
-          {% if diffs %}
-            {{ (diffs|sum / diffs|length)|round(1) }}
+          {% set stamps = states
+             | selectattr('entity_id','match','^geo_location\.lightning_strike_')
+             | unique(attribute='attributes.external_id')
+             | map(attribute='attributes.publication_date')
+             | map('as_timestamp')
+             | map('int')
+             | unique
+             | sort
+             | list %}
+
+          {% if stamps | length > 1 %}
+            {% set n     = stamps | length %}
+            {% set first = stamps[0] %}
+            {% set last  = stamps[n - 1] %}
+            {{ ((last - first) / (n - 1)) | round(0) }}
           {% else %}
             0
-          {% endif %}
-          
-        max_cluster_size: >-
-          {% set pts = uniq|map(attribute='attributes')|list %}
-          {% set n = pts|length %}
-          {% if n < 1 %}
-            0
-          {% else %}
-            {% set th = 5.0 %}
-            {% set counts = [] %}
-            {% for i in range(n) %}
-              {% set pi = pts[i] %}
-              {% set cnt = 1 %}
-              {% for j in range(n) %}
-                {% if j != i %}
-                  {% set pj = pts[j] %}
-                  {% set dlat = (pj.latitude - pi.latitude) * 0.01745329252 %}
-                  {% set dlon = (pj.longitude - pi.longitude) * 0.01745329252 %}
-                  {% set a = (dlat/2)**2 + cos(pi.latitude*0.01745329252)*cos(pj.latitude*0.01745329252)*(dlon/2)**2 %}
-                  {% set c = 2 * asin(a**0.5) %}
-                  {% set dist = 6371.0 * c %}
-                  {% if dist <= th %}
-                    {% set cnt = cnt + 1 %}
-                  {% endif %}
-                {% endif %}
-              {% endfor %}
-              {% set counts = counts + [cnt] %}
-            {% endfor %}
-            {{ counts|max }}
-          {% endif %}
-          
-        is_cluster: >-
-          {% set pts = uniq|map(attribute='attributes')|list %}
-          {% set n = pts|length %}
-          {% if n < 2 %}
-            false
-          {% else %}
-            {% set th = 5.0 %}
-            {% set found = false %}
-            {% for i in range(n) %}
-              {% for j in range(i+1, n) %}
-                {% set pi = pts[i] %}
-                {% set pj = pts[j] %}
-                {% set dlat = (pj.latitude - pi.latitude) * 0.01745329252 %}
-                {% set dlon = (pj.longitude - pi.longitude) * 0.01745329252 %}
-                {% set a = (dlat/2)**2 + cos(pi.latitude*0.01745329252)*cos(pj.latitude*0.01745329252)*(dlon/2)**2 %}
-                {% set c = 2 * asin(a**0.5) %}
-                {% set dist = 6371.0 * c %}
-                {% if dist <= th %}
-                  {% set found = true %}
-                  {% break %}
-                {% endif %}
-              {% endfor %}
-              {% if found %}{% break %}{% endif %}
-            {% endfor %}
-            {{ found }}
           {% endif %}
