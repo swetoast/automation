@@ -1,7 +1,8 @@
 {% set sensor_list = [
   {'key': 'hum',          'entity': 'sensor.average_humidity_tracker'},
   {'key': 'comfort_temp', 'entity': 'sensor.comfort_zone_temperature'},
-  {'key': 'price_thr',    'entity': 'input_number.price_guard_threshold'}
+  {'key': 'price_thr',    'entity': 'input_number.price_guard_threshold'},
+  {'key': 'mold_risk',     'entity': 'sensor.wave_mini_mold'}
 ] %}
 
 {% set flag_list = [
@@ -10,7 +11,8 @@
   {'key': 'lightning',         'entity': 'binary_sensor.lightning_monitor'},
   {'key': 'outlet_overloaded', 'entity': 'binary_sensor.ac_outlet_overloaded'},
   {'key': 'price_guard',       'entity': 'binary_sensor.price_guard'},
-  {'key': 'motion_living',     'entity': 'binary_sensor.motion_living_room'}
+  {'key': 'motion_living',     'entity': 'binary_sensor.motion_living_room'},
+  {'key': 'smoke', 'entity': 'binary_sensor.smoke_alarm_smoke'}
 ] %}
 
 {% set override_list = [
@@ -86,6 +88,11 @@
 {% set ac_modes = ['off','dry','cool','fan_only'] %}
 
 {% set rules = [
+  {
+    'name':  'Smoke detected → off',
+    'passed': is_state('binary_sensor.smoke_alarm_smoke','on'),
+    'mode':  'off'
+  },
   { 'name': 'Global override → off',
     'passed': ns.values.ov_all,
     'mode': 'off' },
@@ -111,6 +118,11 @@
     'name': 'Bedroom window open → fan_only',
     'passed': ns.values.window_bed_door,
     'mode': 'fan_only'
+  },
+  {
+    'name':  'High mold risk → dry',
+    'passed': (ns.values.mold_risk | float(0)) >= 5,
+    'mode':  'dry'
   }
 ] %}
 
