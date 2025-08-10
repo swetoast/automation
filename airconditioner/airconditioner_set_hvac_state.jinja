@@ -43,12 +43,10 @@
 
 {% set hum_low_thr  = 0.30 %}
 {% set hum_high_thr = 0.60 %}
-
 {% set ns = namespace(values={}) %}
 
 {% for item in sensor_list %}
-  {% set val = states(item.entity) | float(0) %}
-  {% set ns.values = ns.values | combine({ (item.key): val }) %}
+  {% set ns.values = ns.values | combine({ (item.key): states(item.entity) | float(0) }) %}
 {% endfor %}
 
 {% for item in flag_list %}
@@ -61,7 +59,6 @@
 
 {% set cp = state_attr('binary_sensor.price_guard','current_price') | float(0) %}
 {% set ns.values = ns.values | combine({ 'current_price': cp }) %}
-
 {% set ns.values = ns.values | combine({
   'severity':   state_attr('sensor.vattenfall_pricing', 'severity_scale'),
   'home_state': is_state('person.toast', 'home'),
@@ -87,23 +84,34 @@
 {% endif %}
 
 {% set ac_modes = ['off','dry','cool','fan_only'] %}
+
 {% set rules = [
   { 'name': 'Global override → off',
     'passed': ns.values.ov_all,
     'mode': 'off' },
+
   { 'name': 'Not home & no override → off',
     'passed': (not ns.values.home_state and not ns.values.ov_not_home),
     'mode': 'off' },
+
   { 'name': 'Lightning safeguard → off',
     'passed': (ns.values.lightning and not ns.values.ov_light),
     'mode': 'off' },
+
   { 'name': 'Outlet overloaded → off',
     'passed': (ns.values.outlet_overloaded and not ns.values.ov_comf),
     'mode': 'off' },
-  { 'name': 'Window open & occupied → fan_only',
-    'passed': ((ns.values.window_open and ns.values.motion_living)
-               or (ns.values.window_bed_door and ns.values.home_state)),
-    'mode': 'fan_only' }
+
+  {
+    'name': 'Living-room window closed → fan_only',
+    'passed': not ns.values.window_open,
+    'mode': 'fan_only'
+  },
+  {
+    'name': 'Bedroom window open → fan_only',
+    'passed': ns.values.window_bed_door,
+    'mode': 'fan_only'
+  }
 ] %}
 
 {% set rules = rules + [
@@ -113,11 +121,13 @@
                and ns.values.severity == 'extreme'
                and not ns.values.ov_price),
     'mode': 'off' },
-  { 'name': 'Price high → fan_only',
+
+  { 'name': 'Price high & hot → fan_only',
     'passed': (ns.values.price_guard
                and ns.values.current_price > ns.values.price_thr
                and ns.values.severity == 'high'
-               and not ns.values.ov_price),
+               and not ns.values.ov_price
+               and ns.values.thoms_state != 'no_discomfort'),
     'mode': 'fan_only' }
 ] %}
 
@@ -129,10 +139,10 @@
   }] %}
 {% endif %}
 
-{% set dry_states = ['more_than_half','most','everyone','dangerous'] %}
 {% set rules = rules + [
   { 'name': 'Too dry → off',
-    'passed': (ns.values.hum < hum_low_thr and (thoms in dry_states)),
+    'passed': (ns.values.hum < hum_low_thr
+               and thoms in ['more_than_half','most','everyone','dangerous']),
     'mode': 'off' }
 ] %}
 
