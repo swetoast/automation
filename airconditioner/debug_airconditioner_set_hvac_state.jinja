@@ -102,10 +102,16 @@
     'passed': (ns.values.outlet_overloaded and not ns.values.ov_comf),
     'mode': 'off' },
 
-  { 'name': 'Window open → fan_only',
-    'passed': ((ns.values.window_open and ns.values.motion_living)
-             or (ns.values.window_bed_door and ns.values.home_state)),
-    'mode': 'fan_only' }
+  {
+    'name': 'Living-room window closed → fan_only',
+    'passed': not ns.values.window_open,
+    'mode': 'fan_only'
+  },
+  {
+    'name': 'Bedroom window open → fan_only',
+    'passed': ns.values.window_bed_door,
+    'mode': 'fan_only'
+  }
 ] %}
 
 {% set rules = rules + [
