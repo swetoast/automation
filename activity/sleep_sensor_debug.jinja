@@ -86,19 +86,23 @@
 
 {%- set rules = [
   {
+    'name': 'High conf + still + watch asleep → asleep',
+    'passed': ns.values.phone_confidence > phone_conf_threshold
+             and ns.values.watch_state == 'asleep'
+             and ns.values.phone_activity == 'still'
+             and ns.values.phone_motion <= phone_motion_threshold,
+    'mode': 'asleep'
+  },
+  {
     'name': 'Watch passive/active → awake',
-    'passed': states('sensor.google_pixel_watch_2_activity_state') in ['passive','active'],
+    'passed': ns.values.watch_state in ['passive','active']
+              or ns.values.phone_activity in ['walking','running','tilting','on_foot','on_bicycle','in_vehicle'],
     'mode': 'awake'
   },
   {
     'name': 'Sleeping & noisy → disturbed',
     'passed': ns.values.watch_asleep and noisy,
     'mode': 'disturbed'
-  },
-  {
-    'name': 'Watch asleep → asleep',
-    'passed': ns.values.watch_asleep,
-    'mode': 'asleep'
   }
 ] -%}
 
