@@ -84,7 +84,7 @@
   'sleeping':           sleeping
 }) %}
 
-{% set rules = [
+{%- set rules = [
   {
     'name': 'High conf + still + watch asleep → asleep',
     'passed': ns.values.phone_confidence > phone_conf_threshold
@@ -95,20 +95,16 @@
   },
   {
     'name': 'Watch passive/active → awake',
-    'passed': ns.values.watch_state in ['passive','active'],
+    'passed': ns.values.watch_state in ['passive','active']
+              or ns.values.phone_activity in ['walking','running','tilting','on_foot','on_bicycle','in_vehicle'],
     'mode': 'awake'
   },
   {
     'name': 'Sleeping & noisy → disturbed',
-    'passed': ns.values.sleeping and ns.values.noisy,
+    'passed': ns.values.watch_asleep and noisy,
     'mode': 'disturbed'
-  },
-  {
-    'name': 'Sleeping → asleep',
-    'passed': ns.values.sleeping,
-    'mode': 'asleep'
   }
-] %}
+] -%}
 
 {% set fired = rules | selectattr('passed') | list | first %}
 
