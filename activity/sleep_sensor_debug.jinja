@@ -53,7 +53,6 @@
   {% set ns.values = ns.values | combine({ (item.key): is_state(item.entity, item.state) }) %}
 {% endfor %}
 
-{# Heart rate capture #}
 {% set hr = states('sensor.my_current_heart_rate') | float(0) %}
 {% set hr_is_fresh = state_attr('sensor.my_current_heart_rate','is_fresh') | default(false) %}
 {% set hr_age_min = state_attr('sensor.my_current_heart_rate','age_min') | float(999) %}
@@ -79,12 +78,10 @@
   and (ns.values.noise > ns.values.baseline + 7)
   and (ns.values.noise > 55) %}
 
-{# CO₂ rising detection when home #}
 {% set co2_rising = ns.values.is_home
   and ns.values.co2_tracker > 0.5
   and ns.values.co2 > ns.values.co2_baseline + 2 %}
 
-{# Sleep flag tightened: no standalone `recent` shortcut #}
 {% set sleeping = (
   (ns.values.bedtime_mode and ns.values.on_body)
   or ns.values.watch_asleep
@@ -160,7 +157,8 @@
   }
 ] -%}
 
-{% set fired = rules | selectattr('passed') | list | first %}
+{% set matches = rules | selectattr('passed') | list %}
+{% set fired = matches[0] if matches | count > 0 else none %}
 
 {% if invalid %}
 INVALID ENTITIES:
