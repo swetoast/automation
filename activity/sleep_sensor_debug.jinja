@@ -1,0 +1,123 @@
+{% set sensor_list = [
+  { 'key': 'baseline',    'entity': 'sensor.bedroom_noise_baseline' },
+  { 'key': 'noise',       'entity': 'sensor.bedroom_sound_pressure' },
+  { 'key': 'illuminance', 'entity': 'sensor.bedroom_illuminance' }
+] %}
+
+{% set flag_list = [
+  { 'key': 'bedtime_mode', 'entity': 'binary_sensor.google_pixel_watch_2_bedtime_mode',    'state': 'on'   },
+  { 'key': 'on_body',      'entity': 'binary_sensor.google_pixel_watch_2_on_body_sensor','state': 'on'   },
+  { 'key': 'watch_asleep', 'entity': 'sensor.google_pixel_watch_2_activity_state',       'state': 'asleep' },
+  { 'key': 'is_home',      'entity': 'person.toast',                                     'state': 'home'  }
+] %}
+
+{% set watch_states           = ['asleep','passive','active'] %}
+{% set phone_activity_states = [
+  'in_vehicle','on_bicycle','on_foot','still','tilting','walking','running'
+] %}
+
+{% set all_entities = [] %}
+{% for item in sensor_list %}   {% set all_entities = all_entities + [item.entity] %} {% endfor %}
+{% for item in flag_list  %}    {% set all_entities = all_entities + [item.entity] %} {% endfor %}
+{% set all_entities = all_entities
+   + [
+       'sensor.pixel_8_pro_sleep_confidence',
+       'sensor.google_pixel_watch_2_activity_state',
+       'sensor.pixel_8_pro_detected_activity'
+     ]
+%}
+
+{% set invalid = [] %}
+{% for ent in all_entities %}
+  {% if states(ent) in ['unavailable','unknown'] %}
+    {% set invalid = invalid + [ ent ~ ' (' ~ states(ent) ~ ')' ] %}
+  {% endif %}
+{% endfor %}
+
+{% set ns = namespace(values={}) %}
+
+{% for item in sensor_list %}
+  {% set ns.values = ns.values
+     | combine({ (item.key): states(item.entity) | float(0) }) %}
+{% endfor %}
+
+{% for item in flag_list %}
+  {% set ns.values = ns.values
+     | combine({ (item.key): is_state(item.entity, item.state) }) %}
+{% endfor %}
+
+{% set phone_ms        = state_attr('sensor.pixel_8_pro_sleep_confidence','timestamp') | int(0) %}
+{% set phone_ts        = phone_ms / 1000 %}
+{% set watch_raw       = state_attr('sensor.google_pixel_watch_2_activity_state','time') %}
+{% set watch_ts        = watch_raw not in [none,'unknown','unavailable'] and as_timestamp(watch_raw) or 0 %}
+{% set phone_motion    = state_attr('sensor.pixel_8_pro_sleep_confidence','motion')  | int(0) %}
+{% set current_watch   = states('sensor.google_pixel_watch_2_activity_state') %}
+{% set phone_activity  = states('sensor.pixel_8_pro_detected_activity') %}
+{% set now_ts          = as_timestamp(now()) %}
+{% set latest_ts       = phone_ts if phone_ts > watch_ts else watch_ts %}
+{% set recent          = latest_ts > (now_ts - 900) %}
+{% set noisy           = ns.values.is_home
+   and (ns.values.noise > ns.values.baseline + 7)
+   and (ns.values.noise > 55) %}
+{% set sleeping        = (ns.values.bedtime_mode and ns.values.on_body)
+   or ns.values.watch_asleep
+   or recent %}
+
+{% set ns.values = ns.values | combine({
+  'phone_ts':             phone_ts,
+  'watch_ts':             watch_ts,
+  'phone_motion':         phone_motion,
+  'watch_state':          current_watch,
+  'phone_activity':       phone_activity,
+  'watch_states':         watch_states,
+  'phone_activity_states':phone_activity_states,
+  'now_ts':               now_ts,
+  'latest_ts':            latest_ts,
+  'recent':               recent,
+  'noisy':                noisy,
+  'sleeping':             sleeping
+}) %}
+
+{% set rules = [
+  {
+    'name': 'Watch passive/active → awake',
+    'passed': ns.values.watch_state in ['passive','active'],
+    'mode': 'awake'
+  },
+  {
+    'name': 'Sleeping & noisy → disturbed',
+    'passed': ns.values.sleeping and ns.values.noisy,
+    'mode': 'disturbed'
+  },
+  {
+    'name': 'Sleeping → asleep',
+    'passed': ns.values.sleeping,
+    'mode': 'asleep'
+  }
+] %}
+
+{% set fired = rules | selectattr('passed') | list | first %}
+
+{% if invalid %}
+INVALID ENTITIES:
+{% for e in invalid %}
+- {{ e }}
+{% endfor %}
+{% endif %}
+
+Computed values:
+{% for key, val in ns.values.items() %}
+- {{ key }}: {{ val }}
+{% endfor %}
+
+{% if fired %}
+Final Mode: {{ fired.mode }}
+Reason: {{ fired.name }}
+{% else %}
+No rule matched
+{% endif %}
+
+Rules evaluation:
+{% for rule in rules %}
+- {{ '[✔]' if rule.passed else '[✘]' }} {{ rule.name }}
+{% endfor %}
