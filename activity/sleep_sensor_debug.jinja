@@ -1,185 +1,133 @@
-{% set sensor_list = [
-  { 'key': 'baseline', 'entity': 'sensor.bedroom_noise_baseline' },
-  { 'key': 'noise', 'entity': 'sensor.bedroom_sound_pressure' },
-  { 'key': 'illuminance', 'entity': 'sensor.bedroom_illuminance' },
-  { 'key': 'co2', 'entity': 'sensor.bedroom_carbon_dioxide' },
-  { 'key': 'co2_baseline', 'entity': 'sensor.bedroom_co2_baseline' },
-  { 'key': 'co2_tracker', 'entity': 'sensor.bedroom_co2_tracker' }
-] %}
-
-{% set flag_list = [
-  { 'key': 'bedtime_mode', 'entity': 'binary_sensor.google_pixel_watch_2_bedtime_mode', 'state': 'on' },
-  { 'key': 'on_body', 'entity': 'binary_sensor.google_pixel_watch_2_on_body_sensor','state': 'on' },
-  { 'key': 'watch_asleep', 'entity': 'sensor.google_pixel_watch_2_activity_state', 'state': 'asleep' },
-  { 'key': 'is_home', 'entity': 'person.toast', 'state': 'home' }
-] %}
-
-{% set watch_states = ['asleep','passive','active'] %}
-{% set phone_activity_states = [
-  'in_vehicle','on_bicycle','on_foot','still','tilting','walking','running'
-] %}
-{% set phone_conf_threshold = 60 %}
-{% set phone_motion_threshold = 2 %}
-{% set hr_sleep_threshold = 70 %}
-{% set hr_max_age_min = 10 %}
-
-{% set all_entities = [] %}
-{% for item in sensor_list %}
-  {% set all_entities = all_entities + [item.entity] %}
-{% endfor %}
-{% for item in flag_list %}
-  {% set all_entities = all_entities + [item.entity] %}
-{% endfor %}
-{% set all_entities = all_entities + [
-  'sensor.pixel_8_pro_sleep_confidence',
-  'sensor.google_pixel_watch_2_activity_state',
-  'sensor.pixel_8_pro_detected_activity',
-  'sensor.my_current_heart_rate'
-] %}
-
-{% set invalid = [] %}
-{% for ent in all_entities %}
-  {% if states(ent) in ['unavailable','unknown'] %}
-    {% set invalid = invalid + [ ent ~ ' (' ~ states(ent) ~ ')' ] %}
-  {% endif %}
-{% endfor %}
-
-{% set ns = namespace(values={}) %}
-
-{% for item in sensor_list %}
-  {% set ns.values = ns.values | combine({ (item.key): states(item.entity) | float(0) }) %}
-{% endfor %}
-{% for item in flag_list %}
-  {% set ns.values = ns.values | combine({ (item.key): is_state(item.entity, item.state) }) %}
-{% endfor %}
-
-{% set hr = states('sensor.my_current_heart_rate') | float(0) %}
-{% set hr_is_fresh = state_attr('sensor.my_current_heart_rate','is_fresh') | default(false) %}
-{% set hr_age_min = state_attr('sensor.my_current_heart_rate','age_min') | float(999) %}
-{% set ns.values = ns.values | combine({
-  'heart_rate': hr,
-  'hr_is_fresh': hr_is_fresh,
-  'hr_age_min': hr_age_min
-}) %}
-
-{% set phone_conf = states('sensor.pixel_8_pro_sleep_confidence') | float(0) %}
-{% set phone_ms = state_attr('sensor.pixel_8_pro_sleep_confidence','timestamp') | int(0) %}
-{% set phone_ts = phone_ms / 1000 %}
-{% set phone_motion = state_attr('sensor.pixel_8_pro_sleep_confidence','motion') | int(0) %}
-{% set watch_state = states('sensor.google_pixel_watch_2_activity_state') %}
-{% set phone_activity = states('sensor.pixel_8_pro_detected_activity') %}
-{% set watch_raw = state_attr('sensor.google_pixel_watch_2_activity_state','time') %}
-{% set watch_ts = watch_raw not in [none,'unknown','unavailable'] and as_timestamp(watch_raw) or 0 %}
-{% set now_ts = as_timestamp(now()) %}
-{% set latest_ts = phone_ts if phone_ts > watch_ts else watch_ts %}
-{% set recent = latest_ts > (now_ts - 900) %}
-
-{% set noisy = ns.values.is_home
-  and (ns.values.noise > ns.values.baseline + 7)
-  and (ns.values.noise > 55) %}
-
-{% set co2_rising = ns.values.is_home
-  and ns.values.co2_tracker > 0.5
-  and ns.values.co2 > ns.values.co2_baseline + 2 %}
-
-{% set sleeping = (
-  (ns.values.bedtime_mode and ns.values.on_body)
-  or ns.values.watch_asleep
-  or co2_rising
-  or (ns.values.hr_is_fresh
-      and ns.values.hr_age_min <= hr_max_age_min
-      and ns.values.heart_rate > 0
-      and ns.values.heart_rate < hr_sleep_threshold
-      and phone_activity == 'still')
-) %}
-
-{% set ns.values = ns.values | combine({
-  'phone_confidence': phone_conf,
-  'phone_ts': phone_ts,
-  'phone_motion': phone_motion,
-  'watch_state': watch_state,
-  'phone_activity': phone_activity,
-  'watch_states': watch_states,
-  'phone_activity_states': phone_activity_states,
-  'now_ts': now_ts,
-  'latest_ts': latest_ts,
-  'recent': recent,
-  'noisy': noisy,
-  'co2_rising': co2_rising,
-  'sleeping': sleeping
-}) %}
-
-{%- set rules = [
-  {
-    'name': 'Asleep',
-    'passed':
-      ns.values.phone_activity == 'still'
-      and ns.values.phone_motion <= phone_motion_threshold
-      and (
-        ns.values.watch_state == 'asleep'
-        or ns.values.bedtime_mode == 'on'
-        or co2_rising
-        or (
-          ns.values.hr_is_fresh
-          and ns.values.hr_age_min <= hr_max_age_min
-          and ns.values.heart_rate > 0
-          and ns.values.heart_rate < hr_sleep_threshold
-        )
-        or (
-          ns.values.phone_confidence > phone_conf_threshold
-          and ns.values.hr_is_fresh
-          and ns.values.hr_age_min <= hr_max_age_min
-          and ns.values.heart_rate > 0
-          and ns.values.heart_rate < hr_sleep_threshold
-        )
-      ),
-    'mode': 'asleep'
-  },
-  {
-    'name': 'Awake',
-    'passed':
-      not sleeping
-      and (
-        ns.values.watch_state in ['passive', 'active']
-        or ns.values.phone_activity in [
-          'walking', 'running', 'tilting',
-          'on_foot', 'on_bicycle', 'in_vehicle'
-        ]
-      ),
-    'mode': 'awake'
-  },
-  {
-    'name': 'Disturbed',
-    'passed':
-      ns.values.watch_asleep
-      and noisy,
-    'mode': 'disturbed'
-  }
-] -%}
-
-{% set matches = rules | selectattr('passed') | list %}
-{% set fired = matches[0] if matches | count > 0 else none %}
-
-{% if invalid %}
-INVALID ENTITIES:
-{% for e in invalid %}
-- {{ e }}
-{% endfor %}
-{% endif %}
-
-Computed values:
-{% for key, val in ns.values.items() %}
-- {{ key }}: {{ val }}
-{% endfor %}
-
-{% if fired %}
-Final Mode: {{ fired.mode }}
-Reason: {{ fired.name }}
+{% if not is_state('person.toast', 'home') %}
+  {% set score = 0 %}
+  {{ (score * 100) | round(0) }}
 {% else %}
-No rule matched
+
+{% set bedtime = is_state('binary_sensor.google_pixel_watch_2_bedtime_mode', 'on') | int %}
+{% set battery_state = states('sensor.google_pixel_watch_2_battery_state') | lower %}
+{% set on_body = is_state('binary_sensor.google_pixel_watch_2_on_body_sensor', 'on') %}
+{% set watch_on_wrist = (on_body and battery_state != 'charging') | int %}
+{% set phone_doze = is_state('binary_sensor.pixel_8_pro_doze_mode', 'on') | int %}
+{% set comfort_ok = is_state('binary_sensor.comfort_levels', 'on') | int %}
+{% set presence_liv = is_state('binary_sensor.presence_sensor', 'on') | int %}
+{% set presence_kitchen = is_state('binary_sensor.kitchen_presence_sensor', 'on') | int %}
+{% set presence_elsewhere = (presence_liv == 1) or (presence_kitchen == 1) %}
+
+{% set hr_current = states('sensor.my_current_heart_rate') | float(0) %}
+{% set hr_resting = states('sensor.peter_s_resting_heart_rate') | float(0) %}
+{% set hr_delta = hr_current - hr_resting %}
+{% if hr_delta <= 5 %}
+  {% set hr_factor = 1 %}
+{% elif hr_delta >= 20 %}
+  {% set hr_factor = -1 %}
+{% else %}
+  {% set hr_factor = ((hr_delta - 5) / (20 - 5)) * -1 %}
 {% endif %}
 
-Rules evaluation:
-{% for rule in rules %}
-- {{ '[✔]' if rule.passed else '[✘]' }} {{ rule.name }}
-{% endfor %}
+{% set gaming = is_state('binary_sensor.gaming_sensor', 'on') | int %}
+{% set shower = is_state('binary_sensor.shower', 'on') | int %}
+
+{% set lux_bed = states('sensor.bedroom_illuminance') | float(0) %}
+{% set lux_liv = states('sensor.livingroom_lux_sensor') | float(0) %}
+{% set noise = states('sensor.bedroom_sound_pressure') | float(0) %}
+{% set noise_base = states('sensor.bedroom_noise_baseline') | float(0) %}
+{% set noise_delta = noise - noise_base %}
+{% set co2_tracker = states('sensor.bedroom_co2_tracker') | float(0) %}
+{% set voc_tracker = states('sensor.bedroom_voc_tracker') | float(0) %}
+{% set temp = states('sensor.bedroom_temperature') | float(0) %}
+{% set temp_base = states('sensor.bedroom_temperature_baseline') | float(0) %}
+{% set temp_delta = temp - temp_base %}
+{% set hum = states('sensor.bedroom_humidity') | float(0) %}
+{% set phone_motion = state_attr('sensor.pixel_8_pro_sleep_confidence', 'motion') | int(1) %}
+{% set phone_still = (phone_motion == 0) %}
+
+{% set w_bedtime      = 0.18 %}
+{% set w_watch_on     = 0.07 %}
+{% set w_phone_doze   = 0.05 %}
+{% set w_dark         = 0.12 %}
+{% set w_quiet        = 0.12 %}
+{% set w_co2rise      = 0.08 %}
+{% set w_vocrise      = 0.08 %}
+{% set w_temp_stable  = 0.08 %}
+{% set w_hum_ok       = 0.08 %}
+{% set w_lightdiff    = 0.04 %}
+{% set w_phone_still  = 0.05 %}
+{% set w_comfort_ok   = 0.05 %}
+{% set w_no_presence  = 0.15 %}
+{% set w_hr           = 0.15 %}
+{% set w_gaming_awake = 0.20 %}
+{% set w_shower_awake = 0.10 %}
+
+{% set dark = lux_bed < 5 %}
+{% set quiet = noise_delta <= 3 %}
+{% set co2rising = co2_tracker > 0.5 %}
+{% set vocrising = voc_tracker > 0.5 %}
+{% set temp_stable = temp_delta | abs <= 1.0 %}
+{% set hum_ok = 40 <= hum <= 60 %}
+{% set lightdiff_ok = (lux_liv - lux_bed) < 5 %}
+
+{% if presence_elsewhere %}
+  {% set presence_penalty = -1 * w_no_presence %}
+  {% if gaming == 1 %}
+    {% set presence_penalty = presence_penalty / 2 %}
+  {% endif %}
+{% else %}
+  {% set presence_penalty = 1 * w_no_presence %}
+{% endif %}
+
+{% set score =
+  (bedtime * w_bedtime) +
+  (watch_on_wrist * w_watch_on) +
+  (phone_doze * w_phone_doze) +
+  (dark | int * w_dark) +
+  (quiet | int * w_quiet) +
+  (co2rising | int * w_co2rise) +
+  (vocrising | int * w_vocrise) +
+  (temp_stable | int * w_temp_stable) +
+  (hum_ok | int * w_hum_ok) +
+  (lightdiff_ok | int * w_lightdiff) +
+  (phone_still | int * w_phone_still) +
+  (comfort_ok * w_comfort_ok) +
+  presence_penalty +
+  (hr_factor * w_hr) +
+  ((-1 if gaming == 1 else 0) * w_gaming_awake) +
+  ((-1 if shower == 1 else 0) * w_shower_awake)
+%}
+
+{% if hr_delta > 15 and score > 0.5 %}
+  {% set score = 0.5 %}
+{% endif %}
+
+{% if score < 0 %}
+  {% set score = 0 %}
+{% elif score > 1 %}
+  {% set score = 1 %}
+{% endif %}
+
+- battery_state: {{ battery_state }}
+- on_body: {{ on_body }}
+- watch_on_wrist: {{ watch_on_wrist }}
+- bedtime: {{ bedtime }}
+- phone_doze: {{ phone_doze }}
+- comfort_ok: {{ comfort_ok }}
+- presence_liv: {{ presence_liv }}
+- presence_kitchen: {{ presence_kitchen }}
+- presence_elsewhere: {{ presence_elsewhere }}
+- presence_penalty: {{ presence_penalty }}
+- hr_current: {{ hr_current }}
+- hr_resting: {{ hr_resting }}
+- hr_delta: {{ hr_delta }}
+- hr_factor: {{ hr_factor }}
+- gaming: {{ gaming }}
+- shower: {{ shower }}
+- dark: {{ dark }}
+- quiet: {{ quiet }}
+- co2rising: {{ co2rising }}
+- vocrising: {{ vocrising }}
+- temp_stable: {{ temp_stable }}
+- hum_ok: {{ hum_ok }}
+- lightdiff_ok: {{ lightdiff_ok }}
+- phone_still: {{ phone_still }}
+
+{{ (score * 100) | round(0) }}
+{% endif %}
