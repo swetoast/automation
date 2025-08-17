@@ -11,7 +11,8 @@
 {% set comfort_ok = is_state('binary_sensor.comfort_levels', 'on') | int %}
 {% set presence_liv = is_state('binary_sensor.presence_sensor', 'on') | int %}
 {% set presence_kitchen = is_state('binary_sensor.kitchen_presence_sensor', 'on') | int %}
-{% set presence_elsewhere = (presence_liv == 1) or (presence_kitchen == 1) %}
+
+{% set presence_elsewhere = (presence_liv == 0) and (presence_kitchen == 0) %}
 
 {% set hr_current = states('sensor.my_current_heart_rate') | float(0) %}
 {% set hr_resting = states('sensor.peter_s_resting_heart_rate') | float(0) %}
@@ -41,6 +42,10 @@
 {% set phone_motion = state_attr('sensor.pixel_8_pro_sleep_confidence', 'motion') | int(1) %}
 {% set phone_still = (phone_motion == 0) %}
 
+{% set watch_interactive = is_state('binary_sensor.google_pixel_watch_2_interactive', 'on') | int %}
+{% set phone_interactive = is_state('binary_sensor.pixel_8_pro_interactive', 'on') | int %}
+{% set interactive_awake = (watch_interactive == 1) or (phone_interactive == 1) %}
+
 {% set w_bedtime      = 0.18 %}
 {% set w_watch_on     = 0.07 %}
 {% set w_phone_doze   = 0.05 %}
@@ -57,6 +62,7 @@
 {% set w_hr           = 0.15 %}
 {% set w_gaming_awake = 0.20 %}
 {% set w_shower_awake = 0.10 %}
+{% set w_interactive_awake = 0.30 %}
 
 {% set dark = lux_bed < 5 %}
 {% set quiet = noise_delta <= 3 %}
@@ -91,7 +97,8 @@
   presence_penalty +
   (hr_factor * w_hr) +
   ((-1 if gaming == 1 else 0) * w_gaming_awake) +
-  ((-1 if shower == 1 else 0) * w_shower_awake)
+  ((-1 if shower == 1 else 0) * w_shower_awake) +
+  ((-1 if interactive_awake else 0) * w_interactive_awake)
 %}
 
 {% if hr_delta > 15 and score > 0.5 %}
@@ -104,30 +111,37 @@
   {% set score = 1 %}
 {% endif %}
 
+{% if not (phone_still and watch_on_wrist) and score == 1 %}
+  {% set score = 0.99 %}
+{% endif %}
+
 - battery_state: {{ battery_state }}
 - on_body: {{ on_body }}
-- watch_on_wrist: {{ watch_on_wrist }}
-- bedtime: {{ bedtime }}
-- phone_doze: {{ phone_doze }}
-- comfort_ok: {{ comfort_ok }}
-- presence_liv: {{ presence_liv }}
+- watch_on_wrist: {{ watch_on_wrist }} (w={{ w_watch_on }}, contrib={{ watch_on_wrist * w_watch_on }})
+- bedtime: {{ bedtime }} (w={{ w_bedtime }}, contrib={{ bedtime * w_bedtime }})
+- phone_doze: {{ phone_doze }} (w={{ w_phone_doze }}, contrib={{ phone_doze * w_phone_doze }})
+- comfort_ok: {{ comfort_ok }} (w={{ w_comfort_ok }}, contrib={{ comfort_ok * w_comfort_ok }})
+- presence_livingroom: {{ presence_liv }}
 - presence_kitchen: {{ presence_kitchen }}
 - presence_elsewhere: {{ presence_elsewhere }}
 - presence_penalty: {{ presence_penalty }}
 - hr_current: {{ hr_current }}
 - hr_resting: {{ hr_resting }}
 - hr_delta: {{ hr_delta }}
-- hr_factor: {{ hr_factor }}
-- gaming: {{ gaming }}
-- shower: {{ shower }}
-- dark: {{ dark }}
-- quiet: {{ quiet }}
-- co2rising: {{ co2rising }}
-- vocrising: {{ vocrising }}
-- temp_stable: {{ temp_stable }}
-- hum_ok: {{ hum_ok }}
-- lightdiff_ok: {{ lightdiff_ok }}
-- phone_still: {{ phone_still }}
+- hr_factor: {{ hr_factor }} (w={{ w_hr }}, contrib={{ hr_factor * w_hr }})
+- gaming: {{ gaming }} (penalty={{ (-1 if gaming == 1 else 0) * w_gaming_awake }})
+- shower: {{ shower }} (penalty={{ (-1 if shower == 1 else 0) * w_shower_awake }})
+- watch_interactive: {{ watch_interactive }}
+- phone_interactive: {{ phone_interactive }}
+- interactive_awake: {{ interactive_awake }} (penalty={{ (-1 if interactive_awake else 0) * w_interactive_awake }})
+- dark: {{ dark }} (w={{ w_dark }}, contrib={{ (dark | int) * w_dark }})
+- quiet: {{ quiet }} (w={{ w_quiet }}, contrib={{ (quiet | int) * w_quiet }})
+- co2rising: {{ co2rising }} (w={{ w_co2rise }}, contrib={{ (co2rising | int) * w_co2rise }})
+- vocrising: {{ vocrising }} (w={{ w_vocrise }}, contrib={{ (vocrising | int) * w_vocrise }})
+- temp_stable: {{ temp_stable }} (w={{ w_temp_stable }}, contrib={{ (temp_stable | int) * w_temp_stable }})
+- hum_ok: {{ hum_ok }} (w={{ w_hum_ok }}, contrib={{ (hum_ok | int) * w_hum_ok }})
+- lightdiff_ok: {{ lightdiff_ok }} (w={{ w_lightdiff }}, contrib={{ (lightdiff_ok | int) * w_lightdiff }})
+- phone_still: {{ phone_still }} (w={{ w_phone_still }}, contrib={{ (phone_still | int) * w_phone_still }})
+- final_score(%): {{ (score * 100) | round(0) }}
 
-{{ (score * 100) | round(0) }}
 {% endif %}
