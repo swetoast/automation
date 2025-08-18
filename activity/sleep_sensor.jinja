@@ -1,18 +1,15 @@
 {% if not is_state('person.toast', 'home') %}
-  {% set score = 0 %}
-  {{ (score * 100) | round(0) }}
+  0
 {% else %}
 
 {% set bedtime = is_state('binary_sensor.google_pixel_watch_2_bedtime_mode', 'on') | int %}
-{% set battery_state = states('sensor.google_pixel_watch_2_battery_state') | lower %}
-{% set on_body = is_state('binary_sensor.google_pixel_watch_2_on_body_sensor', 'on') %}
-{% set watch_on_wrist = (on_body and battery_state != 'charging') | int %}
+{% set watch_on_wrist = is_state('binary_sensor.google_pixel_watch_2_on_body_sensor', 'on') | int %}
 {% set phone_doze = is_state('binary_sensor.pixel_8_pro_doze_mode', 'on') | int %}
 {% set comfort_ok = is_state('binary_sensor.comfort_levels', 'on') | int %}
+
 {% set presence_liv = is_state('binary_sensor.presence_sensor', 'on') | int %}
 {% set presence_kitchen = is_state('binary_sensor.kitchen_presence_sensor', 'on') | int %}
-
-{% set presence_elsewhere = (presence_liv == 0) and (presence_kitchen == 0) %}
+{% set presence_elsewhere = (presence_liv == 1) or (presence_kitchen == 1) %}
 
 {% set hr_current = states('sensor.my_current_heart_rate') | float(0) %}
 {% set hr_resting = states('sensor.peter_s_resting_heart_rate') | float(0) %}
@@ -27,12 +24,14 @@
 
 {% set gaming = is_state('binary_sensor.gaming_sensor', 'on') | int %}
 {% set shower = is_state('binary_sensor.shower', 'on') | int %}
+{% set phone_interactive = is_state('binary_sensor.pixel_8_pro_interactive', 'on') | int %}
 
 {% set lux_bed = states('sensor.bedroom_illuminance') | float(0) %}
 {% set lux_liv = states('sensor.livingroom_lux_sensor') | float(0) %}
 {% set noise = states('sensor.bedroom_sound_pressure') | float(0) %}
 {% set noise_base = states('sensor.bedroom_noise_baseline') | float(0) %}
 {% set noise_delta = noise - noise_base %}
+{% set co2 = states('sensor.bedroom_carbon_dioxide') | float(0) %}
 {% set co2_tracker = states('sensor.bedroom_co2_tracker') | float(0) %}
 {% set voc_tracker = states('sensor.bedroom_voc_tracker') | float(0) %}
 {% set temp = states('sensor.bedroom_temperature') | float(0) %}
@@ -41,10 +40,6 @@
 {% set hum = states('sensor.bedroom_humidity') | float(0) %}
 {% set phone_motion = state_attr('sensor.pixel_8_pro_sleep_confidence', 'motion') | int(1) %}
 {% set phone_still = (phone_motion == 0) %}
-
-{% set watch_interactive = is_state('binary_sensor.google_pixel_watch_2_interactive', 'on') | int %}
-{% set phone_interactive = is_state('binary_sensor.pixel_8_pro_interactive', 'on') | int %}
-{% set interactive_awake = (watch_interactive == 1) or (phone_interactive == 1) %}
 
 {% set w_bedtime      = 0.18 %}
 {% set w_watch_on     = 0.07 %}
@@ -62,7 +57,7 @@
 {% set w_hr           = 0.15 %}
 {% set w_gaming_awake = 0.20 %}
 {% set w_shower_awake = 0.10 %}
-{% set w_interactive_awake = 0.30 %}
+{% set w_phone_interactive = 0.05 %}
 
 {% set dark = lux_bed < 5 %}
 {% set quiet = noise_delta <= 3 %}
@@ -81,24 +76,30 @@
   {% set presence_penalty = 1 * w_no_presence %}
 {% endif %}
 
+{% if phone_interactive == 1 and bedtime == 0 %}
+  {% set phone_interactive_penalty = -1 * w_phone_interactive %}
+{% else %}
+  {% set phone_interactive_penalty = 0 %}
+{% endif %}
+
 {% set score =
   (bedtime * w_bedtime) +
   (watch_on_wrist * w_watch_on) +
   (phone_doze * w_phone_doze) +
-  (dark | int * w_dark) +
-  (quiet | int * w_quiet) +
-  (co2rising | int * w_co2rise) +
-  (vocrising | int * w_vocrise) +
-  (temp_stable | int * w_temp_stable) +
-  (hum_ok | int * w_hum_ok) +
-  (lightdiff_ok | int * w_lightdiff) +
-  (phone_still | int * w_phone_still) +
+  ((dark | int) * w_dark) +
+  ((quiet | int) * w_quiet) +
+  ((co2rising | int) * w_co2rise) +
+  ((vocrising | int) * w_vocrise) +
+  ((temp_stable | int) * w_temp_stable) +
+  ((hum_ok | int) * w_hum_ok) +
+  ((lightdiff_ok | int) * w_lightdiff) +
+  ((phone_still | int) * w_phone_still) +
   (comfort_ok * w_comfort_ok) +
   presence_penalty +
+  phone_interactive_penalty +
   (hr_factor * w_hr) +
   ((-1 if gaming == 1 else 0) * w_gaming_awake) +
-  ((-1 if shower == 1 else 0) * w_shower_awake) +
-  ((-1 if interactive_awake else 0) * w_interactive_awake)
+  ((-1 if shower == 1 else 0) * w_shower_awake)
 %}
 
 {% if hr_delta > 15 and score > 0.5 %}
@@ -116,5 +117,4 @@
 {% endif %}
 
 {{ (score * 100) | round(0) }}
-
 {% endif %}
