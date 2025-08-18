@@ -39,8 +39,9 @@
 {% set temp_base = states('sensor.bedroom_temperature_baseline') | float(0) %}
 {% set temp_delta = temp - temp_base %}
 {% set hum = states('sensor.bedroom_humidity') | float(0) %}
-{% set phone_motion = state_attr('sensor.pixel_8_pro_sleep_confidence', 'motion') | int(1) %}
-{% set phone_still = (phone_motion == 0) %}
+
+{% set phone_motion = state_attr('sensor.pixel_8_pro_sleep_confidence', 'motion') | int(10) %}
+{% set phone_still = phone_motion <= 3 %}
 {% set phone_interactive = is_state('binary_sensor.pixel_8_pro_interactive', 'on') | int %}
 
 {% set w_bedtime      = 0.18 %}
@@ -141,7 +142,7 @@ Lux Bed: {{ lux_bed }} lx → Dark={{ dark }} ({{ (c_dark*100) | round(1) }}%) |
 Lux Living: {{ lux_liv }} lx → DiffOK={{ lightdiff_ok }} ({{ (c_lightdiff_ok*100) | round(1) }}%)
 Noise: {{ noise | round(1) }} dBA (Δ{{ noise_delta | round(2) }}) → Quiet={{ quiet }} ({{ (c_quiet*100) | round(1) }}%)
 CO₂: {{ co2 | round(0) }} ppm, RiseTracker: {{ co2_tracker | round(2) }} → Rising={{ co2rising }} ({{ (c_co2rise*100) | round(1) }}%)
-VOC RiseTracker: {{ voc_tracker | round(2) }} → Rising={{ vocrising }} ({{ (c_vocrise*100) | round(1) }}%)
+VOC RiseTracker: {{ voc_tracker | round(2) }}
 Temp: {{ temp | round(1) }} °C (Δ{{ temp_delta | round(2) }}) → Stable={{ temp_stable }} ({{ (c_temp_stable*100) | round(1) }}%)
 Humidity: {{ hum | round(0) }}% → InRange={{ hum_ok }} ({{ (c_hum_ok*100) | round(1) }}%)
 
