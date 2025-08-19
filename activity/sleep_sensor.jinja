@@ -1,5 +1,6 @@
 {% if not is_state('person.toast', 'home') %}
-  0
+  {% set score = 0 %}
+  {{ (score * 100) | round(0) }}
 {% else %}
 
 {% set bedtime = is_state('binary_sensor.google_pixel_watch_2_bedtime_mode', 'on') | int %}
@@ -10,6 +11,11 @@
 {% set presence_liv = is_state('binary_sensor.presence_sensor', 'on') | int %}
 {% set presence_kitchen = is_state('binary_sensor.kitchen_presence_sensor', 'on') | int %}
 {% set presence_elsewhere = (presence_liv == 1) or (presence_kitchen == 1) %}
+{% set no_presence_elsewhere = not presence_elsewhere %}
+{% set presence_bathroom = is_state('binary_sensor.bathroom_occupancy', 'on') | int %}
+{% set presence_entryway = is_state('binary_sensor.entryway_occupancy', 'on') | int %}
+{% set presence_elsewhere = presence_elsewhere or (presence_bathroom == 1) or (presence_entryway == 1) %}
+{% set no_presence_elsewhere = not presence_elsewhere %}
 
 {% set hr_current = states('sensor.my_current_heart_rate') | float(0) %}
 {% set hr_resting = states('sensor.peter_s_resting_heart_rate') | float(0) %}
@@ -24,7 +30,6 @@
 
 {% set gaming = is_state('binary_sensor.gaming_sensor', 'on') | int %}
 {% set shower = is_state('binary_sensor.shower', 'on') | int %}
-{% set phone_interactive = is_state('binary_sensor.pixel_8_pro_interactive', 'on') | int %}
 
 {% set lux_bed = states('sensor.bedroom_illuminance') | float(0) %}
 {% set lux_liv = states('sensor.livingroom_lux_sensor') | float(0) %}
@@ -38,8 +43,10 @@
 {% set temp_base = states('sensor.bedroom_temperature_baseline') | float(0) %}
 {% set temp_delta = temp - temp_base %}
 {% set hum = states('sensor.bedroom_humidity') | float(0) %}
-{% set phone_motion = state_attr('sensor.pixel_8_pro_sleep_confidence', 'motion') | int(1) %}
-{% set phone_still = (phone_motion == 0) %}
+
+{% set phone_motion = state_attr('sensor.pixel_8_pro_sleep_confidence', 'motion') | int(10) %}
+{% set phone_still = phone_motion <= 3 %}
+{% set phone_interactive = is_state('binary_sensor.pixel_8_pro_interactive', 'on') | int %}
 
 {% set w_bedtime      = 0.18 %}
 {% set w_watch_on     = 0.07 %}
@@ -59,6 +66,10 @@
 {% set w_shower_awake = 0.10 %}
 {% set w_phone_interactive = 0.05 %}
 
+{% set w_gaming_recent = 0.12 %}
+{% set w_shower_recent = 0.08 %}
+{% set w_phone_recent  = 0.07 %}
+
 {% set dark = lux_bed < 5 %}
 {% set quiet = noise_delta <= 3 %}
 {% set co2rising = co2_tracker > 0.5 %}
@@ -66,6 +77,38 @@
 {% set temp_stable = temp_delta | abs <= 1.0 %}
 {% set hum_ok = 40 <= hum <= 60 %}
 {% set lightdiff_ok = (lux_liv - lux_bed) < 5 %}
+
+{% set now_ts = as_timestamp(now()) %}
+
+{# --- Gaming recent (no activity_last_*, uses last_changed) --- #}
+{% set cooldown_gaming = 30 %}
+{% set on_gaming = is_state('binary_sensor.gaming_sensor', 'on') %}
+{% set last_change_gaming = as_timestamp(states.binary_sensor.gaming_sensor.last_changed) %}
+{% set mins_since_change_gaming = ((as_timestamp(now()) - last_change_gaming) / 60) | float %}
+{% set mins_since_off_gaming = 0 if on_gaming else mins_since_change_gaming %}
+{% set remaining_gaming = cooldown_gaming if on_gaming else max(0, cooldown_gaming - mins_since_off_gaming) %}
+{% set gaming_fresh = remaining_gaming / cooldown_gaming %}
+{% set mins_since_gaming = mins_since_off_gaming %}
+
+{# --- Shower recent (no activity_last_*, uses last_changed) --- #}
+{% set cooldown_shower = 20 %}
+{% set on_shower = is_state('binary_sensor.shower', 'on') %}
+{% set last_change_shower = as_timestamp(states.binary_sensor.shower.last_changed) %}
+{% set mins_since_change_shower = ((as_timestamp(now()) - last_change_shower) / 60) | float %}
+{% set mins_since_off_shower = 0 if on_shower else mins_since_change_shower %}
+{% set remaining_shower = cooldown_shower if on_shower else max(0, cooldown_shower - mins_since_off_shower) %}
+{% set shower_fresh = remaining_shower / cooldown_shower %}
+{% set mins_since_shower = mins_since_off_shower %}
+
+{# --- Phone interactive recent (no activity_last_*, uses last_changed) --- #}
+{% set cooldown_phone = 15 %}
+{% set on_phone = is_state('binary_sensor.pixel_8_pro_interactive', 'on') %}
+{% set last_change_phone = as_timestamp(states.binary_sensor.pixel_8_pro_interactive.last_changed) %}
+{% set mins_since_change_phone = ((as_timestamp(now()) - last_change_phone) / 60) | float %}
+{% set mins_since_off_phone = 0 if on_phone else mins_since_change_phone %}
+{% set remaining_phone = cooldown_phone if on_phone else max(0, cooldown_phone - mins_since_off_phone) %}
+{% set phone_fresh = remaining_phone / cooldown_phone %}
+{% set mins_since_phone = mins_since_off_phone %}
 
 {% if presence_elsewhere %}
   {% set presence_penalty = -1 * w_no_presence %}
@@ -82,30 +125,43 @@
   {% set phone_interactive_penalty = 0 %}
 {% endif %}
 
-{% set score =
-  (bedtime * w_bedtime) +
-  (watch_on_wrist * w_watch_on) +
-  (phone_doze * w_phone_doze) +
-  ((dark | int) * w_dark) +
-  ((quiet | int) * w_quiet) +
-  ((co2rising | int) * w_co2rise) +
-  ((vocrising | int) * w_vocrise) +
-  ((temp_stable | int) * w_temp_stable) +
-  ((hum_ok | int) * w_hum_ok) +
-  ((lightdiff_ok | int) * w_lightdiff) +
-  ((phone_still | int) * w_phone_still) +
-  (comfort_ok * w_comfort_ok) +
-  presence_penalty +
-  phone_interactive_penalty +
-  (hr_factor * w_hr) +
-  ((-1 if gaming == 1 else 0) * w_gaming_awake) +
-  ((-1 if shower == 1 else 0) * w_shower_awake)
+{% set c_bedtime         = bedtime * w_bedtime %}
+{% set c_watch_on        = watch_on_wrist * w_watch_on %}
+{% set c_phone_doze      = phone_doze * w_phone_doze %}
+{% set c_dark            = (dark | int) * w_dark %}
+{% set c_quiet           = (quiet | int) * w_quiet %}
+{% set c_co2rise         = (co2rising | int) * w_co2rise %}
+{% set c_vocrise         = (vocrising | int) * w_vocrise %}
+{% set c_temp_stable     = (temp_stable | int) * w_temp_stable %}
+{% set c_hum_ok          = (hum_ok | int) * w_hum_ok %}
+{% set c_lightdiff_ok    = (lightdiff_ok | int) * w_lightdiff %}
+{% set c_phone_still     = (phone_still | int) * w_phone_still %}
+{% set c_comfort_ok      = comfort_ok * w_comfort_ok %}
+{% set c_presence        = presence_penalty %}
+{% set c_phone_interact  = phone_interactive_penalty %}
+{% set c_hr              = hr_factor * w_hr %}
+{% set c_gaming          = (-1 if gaming == 1 else 0) * w_gaming_awake %}
+{% set c_shower          = (-1 if shower == 1 else 0) * w_shower_awake %}
+
+{% set c_gaming_recent = (0 if gaming == 1 else (-1 * w_gaming_recent * gaming_fresh)) %}
+{% set c_shower_recent = (0 if shower == 1 else (-1 * w_shower_recent * shower_fresh)) %}
+{% set c_phone_recent = (0 if (phone_interactive == 1 or bedtime == 1) else (-1 * w_phone_recent * phone_fresh)) %}
+
+{% set score_raw =
+  c_bedtime + c_watch_on + c_phone_doze +
+  c_dark + c_quiet + c_co2rise + c_vocrise +
+  c_temp_stable + c_hum_ok + c_lightdiff_ok +
+  c_phone_still + c_comfort_ok + c_presence +
+  c_phone_interact + c_hr + c_gaming + c_shower +
+  c_gaming_recent + c_shower_recent + c_phone_recent
 %}
 
-{% if hr_delta > 15 and score > 0.5 %}
-  {% set score = 0.5 %}
+{% set score_after_hr = score_raw %}
+{% if hr_delta > 15 and score_after_hr > 0.5 %}
+  {% set score_after_hr = 0.5 %}
 {% endif %}
 
+{% set score = score_after_hr %}
 {% if score < 0 %}
   {% set score = 0 %}
 {% elif score > 1 %}
@@ -116,5 +172,6 @@
   {% set score = 0.99 %}
 {% endif %}
 
-{{ (score * 100) | round(0) }}
+{{ (score*100) | round(0) }}
+
 {% endif %}
