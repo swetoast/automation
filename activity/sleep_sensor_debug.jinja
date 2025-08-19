@@ -12,6 +12,10 @@
 {% set presence_kitchen = is_state('binary_sensor.kitchen_presence_sensor', 'on') | int %}
 {% set presence_elsewhere = (presence_liv == 1) or (presence_kitchen == 1) %}
 {% set no_presence_elsewhere = not presence_elsewhere %}
+{% set presence_bathroom = is_state('binary_sensor.bathroom_occupancy', 'on') | int %}
+{% set presence_entryway = is_state('binary_sensor.entryway_occupancy', 'on') | int %}
+{% set presence_elsewhere = presence_elsewhere or (presence_bathroom == 1) or (presence_entryway == 1) %}
+{% set no_presence_elsewhere = not presence_elsewhere %}
 
 {% set hr_current = states('sensor.my_current_heart_rate') | float(0) %}
 {% set hr_resting = states('sensor.peter_s_resting_heart_rate') | float(0) %}
@@ -116,7 +120,6 @@
   {% set score_after_hr = 0.5 %}
 {% endif %}
 
-{# Clamp 0..1 #}
 {% set score = score_after_hr %}
 {% if score < 0 %}
   {% set score = 0 %}
@@ -132,7 +135,7 @@ Final Score: {{ (score * 100) | round(0) }}%
 
 — Core states —
 Bedtime: {{ bedtime }} | Watch On Wrist: {{ watch_on_wrist }} | Phone Doze: {{ phone_doze }} | Comfort OK: {{ comfort_ok }}
-Presence Elsewhere: {{ presence_elsewhere }} (Liv={{ presence_liv }}, Kitchen={{ presence_kitchen }})
+Presence Elsewhere: {{ presence_elsewhere }} (Liv={{ presence_liv }}, Kitchen={{ presence_kitchen }}, Bath={{ presence_bathroom }}, Entry={{ presence_entryway }})
 
 — Heart rate —
 HR Now: {{ hr_current }} bpm | Rest: {{ hr_resting }} bpm | Δ={{ hr_delta | round(1) }} → HR factor={{ hr_factor | round(2) }} → Contribution={{ (c_hr*100) | round(1) }}%
