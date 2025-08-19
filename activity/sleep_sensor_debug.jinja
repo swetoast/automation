@@ -80,38 +80,32 @@
 
 {% set now_ts = as_timestamp(now()) %}
 
-{% set gaming_last_ts =
-  (as_timestamp(states('sensor.activity_last_gaming'))
-    if states('sensor.activity_last_gaming') not in ['unknown','unavailable','None',''] else
-    (as_timestamp(states.binary_sensor.gaming_sensor.last_changed) if gaming == 1 else none)
-  )
-%}
-{% set mins_since_gaming = ((now_ts - gaming_last_ts) / 60) if gaming_last_ts is not none else 999 %}
-{% set gaming_cool_min = 30 %}
-{% set gaming_fresh = 1 - (mins_since_gaming / gaming_cool_min) %}
-{% if gaming_fresh < 0 %}{% set gaming_fresh = 0 %}{% elif gaming_fresh > 1 %}{% set gaming_fresh = 1 %}{% endif %}
+{% set cooldown_gaming = 30 %}
+{% set on_gaming = is_state('binary_sensor.gaming_sensor', 'on') %}
+{% set last_change_gaming = as_timestamp(states.binary_sensor.gaming_sensor.last_changed) %}
+{% set mins_since_change_gaming = ((as_timestamp(now()) - last_change_gaming) / 60) | float %}
+{% set mins_since_off_gaming = 0 if on_gaming else mins_since_change_gaming %}
+{% set remaining_gaming = cooldown_gaming if on_gaming else max(0, cooldown_gaming - mins_since_off_gaming) %}
+{% set gaming_fresh = remaining_gaming / cooldown_gaming %}
+{% set mins_since_gaming = mins_since_off_gaming %}
 
-{% set shower_last_ts =
-  (as_timestamp(states('sensor.activity_last_shower'))
-    if states('sensor.activity_last_shower') not in ['unknown','unavailable','None',''] else
-    (as_timestamp(states.binary_sensor.shower.last_changed) if shower == 1 else none)
-  )
-%}
-{% set mins_since_shower = ((now_ts - shower_last_ts) / 60) if shower_last_ts is not none else 999 %}
-{% set shower_cool_min = 20 %}
-{% set shower_fresh = 1 - (mins_since_shower / shower_cool_min) %}
-{% if shower_fresh < 0 %}{% set shower_fresh = 0 %}{% elif shower_fresh > 1 %}{% set shower_fresh = 1 %}{% endif %}
+{% set cooldown_shower = 20 %}
+{% set on_shower = is_state('binary_sensor.shower', 'on') %}
+{% set last_change_shower = as_timestamp(states.binary_sensor.shower.last_changed) %}
+{% set mins_since_change_shower = ((as_timestamp(now()) - last_change_shower) / 60) | float %}
+{% set mins_since_off_shower = 0 if on_shower else mins_since_change_shower %}
+{% set remaining_shower = cooldown_shower if on_shower else max(0, cooldown_shower - mins_since_off_shower) %}
+{% set shower_fresh = remaining_shower / cooldown_shower %}
+{% set mins_since_shower = mins_since_off_shower %}
 
-{% set phone_last_ts =
-  (as_timestamp(states('sensor.activity_last_phone_interactive'))
-    if states('sensor.activity_last_phone_interactive') not in ['unknown','unavailable','None',''] else
-    (as_timestamp(states.binary_sensor.pixel_8_pro_interactive.last_changed) if phone_interactive == 1 else none)
-  )
-%}
-{% set mins_since_phone = ((now_ts - phone_last_ts) / 60) if phone_last_ts is not none else 999 %}
-{% set phone_cool_min = 15 %}
-{% set phone_fresh = 1 - (mins_since_phone / phone_cool_min) %}
-{% if phone_fresh < 0 %}{% set phone_fresh = 0 %}{% elif phone_fresh > 1 %}{% set phone_fresh = 1 %}{% endif %}
+{% set cooldown_phone = 15 %}
+{% set on_phone = is_state('binary_sensor.pixel_8_pro_interactive', 'on') %}
+{% set last_change_phone = as_timestamp(states.binary_sensor.pixel_8_pro_interactive.last_changed) %}
+{% set mins_since_change_phone = ((as_timestamp(now()) - last_change_phone) / 60) | float %}
+{% set mins_since_off_phone = 0 if on_phone else mins_since_change_phone %}
+{% set remaining_phone = cooldown_phone if on_phone else max(0, cooldown_phone - mins_since_off_phone) %}
+{% set phone_fresh = remaining_phone / cooldown_phone %}
+{% set mins_since_phone = mins_since_off_phone %}
 
 {% if presence_elsewhere %}
   {% set presence_penalty = -1 * w_no_presence %}
