@@ -1,4 +1,4 @@
-{% set sleep_confidence = states('sensor.pixel_8_pro_sleep_confidence') | int(default=0) %}
+{% set sleep_confidence = states('sensor.my_sleep_confidance_smoothed') | int(default=0) %}
 {% set location         = states('person.toast') %}
 {% set phone_state      = states('sensor.pixel_8_pro_phone_state') %}
 {% set interactive      = is_state('binary_sensor.pixel_8_pro_interactive', 'on') %}
