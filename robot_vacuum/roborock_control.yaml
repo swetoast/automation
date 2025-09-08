@@ -46,7 +46,7 @@
         cleanliness_score: >
           {% set EFFICIENCY_CAP = 1.0 %}
           {% set SHORT_RUN_THRESHOLD = 15 %}
-          {% set RECENCY_DECAY = 0.73 %}
+          {% set RECENCY_DECAY = 0.9 %}
           {% set MOP_PENALTY_START = 0.6 %}
           {% set MOP_PENALTY_DECAY = 0.05 %}
           {% set MOP_PENALTY_FLOOR = 0.4 %}
