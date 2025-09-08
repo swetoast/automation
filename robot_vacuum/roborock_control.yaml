@@ -4,15 +4,13 @@
       friendly_name: "Roborock Control"
       device_class: problem
       value_template: >
-        {# ==== CONFIGURABLE CONSTANTS ==== #}
         {% set EFFICIENCY_CAP = 1.0 %}
         {% set SHORT_RUN_THRESHOLD = 15 %}
-        {% set RECENCY_DECAY = 0.90 %}
+        {% set RECENCY_DECAY = 0.9 %}
         {% set MOP_PENALTY_START = 0.6 %}
         {% set MOP_PENALTY_DECAY = 0.05 %}
         {% set MOP_PENALTY_FLOOR = 0.4 %}
 
-        {# ==== SAFE INPUTS ==== #}
         {% set last_end_s = states('sensor.roborock_s8_pro_ultra_last_clean_end') %}
         {% set last_end = as_timestamp(last_end_s) if last_end_s not in ['unknown','unavailable','','none','None'] else none %}
         {% set days_since = ((now().timestamp() - last_end) / 86400) if last_end is number else 0 %}
@@ -20,17 +18,13 @@
         {% set runtime = states('sensor.roborock_s8_pro_ultra_cleaning_time') | float(0) %}
         {% set mop_attached = is_state('binary_sensor.roborock_s8_pro_ultra_mop_attached','on') %}
 
-        {# ==== EFFICIENCY ==== #}
         {% set eff = (area / runtime * 100) if runtime > 0 else 0 %}
         {% if eff > EFFICIENCY_CAP %}{% set eff = EFFICIENCY_CAP %}{% endif %}
         {% if 0 < runtime < SHORT_RUN_THRESHOLD %}
           {% set eff = eff * 0.5 %}
         {% endif %}
 
-        {# ==== RECENCY FACTOR ==== #}
         {% set rec = RECENCY_DECAY ** days_since %}
-
-        {# ==== MOP FACTOR ==== #}
         {% if mop_attached %}
           {% set mop = 1 %}
         {% else %}
@@ -39,7 +33,6 @@
           {% set mop = mop_penalty %}
         {% endif %}
 
-        {# ==== FINAL SCORE ==== #}
         {% set base_score = eff * rec * mop %}
         {% set clean_score = (base_score * 0.8) + (eff * 0.2) %}
         {% set quality = 'excellent' if clean_score >= 0.9
@@ -50,25 +43,68 @@
         {{ 'on' if quality != 'good' else 'off' }}
 
       attribute_templates:
-        cleanliness_score: "{{ (clean_score * 100) | round(1) }}"
-        quality: "{{ quality }}"
+        cleanliness_score: >
+          {% set EFFICIENCY_CAP = 1.0 %}
+          {% set SHORT_RUN_THRESHOLD = 15 %}
+          {% set RECENCY_DECAY = 0.73 %}
+          {% set MOP_PENALTY_START = 0.6 %}
+          {% set MOP_PENALTY_DECAY = 0.05 %}
+          {% set MOP_PENALTY_FLOOR = 0.4 %}
+
+          {% set last_end_s = states('sensor.roborock_s8_pro_ultra_last_clean_end') %}
+          {% set last_end = as_timestamp(last_end_s) if last_end_s not in ['unknown','unavailable','','none','None'] else none %}
+          {% set days_since = ((now().timestamp() - last_end) / 86400) if last_end is number else 0 %}
+          {% set area = states('sensor.roborock_s8_pro_ultra_cleaning_area') | float(0) %}
+          {% set runtime = states('sensor.roborock_s8_pro_ultra_cleaning_time') | float(0) %}
+          {% set mop_attached = is_state('binary_sensor.roborock_s8_pro_ultra_mop_attached','on') %}
+
+          {% set eff = (area / runtime * 100) if runtime > 0 else 0 %}
+          {% if eff > EFFICIENCY_CAP %}{% set eff = EFFICIENCY_CAP %}{% endif %}
+          {% if 0 < runtime < SHORT_RUN_THRESHOLD %}
+            {% set eff = eff * 0.5 %}
+          {% endif %}
+
+          {% set rec = RECENCY_DECAY ** days_since %}
+          {% if mop_attached %}
+            {% set mop = 1 %}
+          {% else %}
+            {% set mop_penalty = MOP_PENALTY_START - (MOP_PENALTY_DECAY * days_since) %}
+            {% if mop_penalty < MOP_PENALTY_FLOOR %}{% set mop_penalty = MOP_PENALTY_FLOOR %}{% endif %}
+            {% set mop = mop_penalty %}
+          {% endif %}
+
+          {% set base_score = eff * rec * mop %}
+          {% set clean_score = (base_score * 0.8) + (eff * 0.2) %}
+          {{ (clean_score * 100) | round(1) }}
+
+        quality: >
+          {% set score = state_attr('binary_sensor.roborock_control','cleanliness_score') | float(0) / 100 %}
+          {{ 'excellent' if score >= 0.9 else 'good' if score >= 0.75 else 'moderate' if score >= 0.45 else 'poor' }}
+
         dock_empty_mode: >
+          {% set q = (state_attr('binary_sensor.roborock_control','quality') | string | lower | trim) or 'poor' %}
           {% set mapping = { 'excellent': 'max', 'good': 'smart', 'moderate': 'balanced', 'poor': 'light' } %}
-          {% set expected = mapping[quality] %}
-          {% set current = states('select.roborock_s8_pro_ultra_dock_empty_mode') | lower | trim %}
+          {% set expected = mapping[q] if q in mapping else 'light' %}
+          {% set current = states('select.roborock_s8_pro_ultra_dock_empty_mode') | string | lower | trim %}
           {{ current if current in mapping.values() and current == expected else expected }}
+
         mop_mode: >
+          {% set q = (state_attr('binary_sensor.roborock_control','quality') | string | lower | trim) or 'poor' %}
           {% set mapping = { 'poor': 'deep_plus', 'moderate': 'standard', 'good': 'deep', 'excellent': 'standard' } %}
-          {% set expected = mapping[quality] %}
-          {% set current = states('select.roborock_s8_pro_ultra_mop_mode') | lower | trim %}
+          {% set expected = mapping[q] if q in mapping else 'standard' %}
+          {% set current = states('select.roborock_s8_pro_ultra_mop_mode') | string | lower | trim %}
           {{ current if current in mapping.values() and current == expected else expected }}
+
         mop_intensity: >
+          {% set q = (state_attr('binary_sensor.roborock_control','quality') | string | lower | trim) or 'poor' %}
           {% set mapping = { 'poor': 'intense', 'moderate': 'moderate', 'good': 'mild', 'excellent': 'off' } %}
-          {% set expected = mapping[quality] %}
-          {% set current = states('select.roborock_s8_pro_ultra_mop_intensity') | lower | trim %}
+          {% set expected = mapping[q] if q in mapping else 'off' %}
+          {% set current = states('select.roborock_s8_pro_ultra_mop_intensity') | string | lower | trim %}
           {{ current if current in mapping.values() and current == expected else expected }}
+
         fan_speed: >
+          {% set q = (state_attr('binary_sensor.roborock_control','quality') | string | lower | trim) or 'poor' %}
           {% set mapping = { 'poor': 'max_plus', 'moderate': 'max', 'good': 'balanced', 'excellent': 'quiet' } %}
-          {% set expected = mapping[quality] %}
-          {% set current_speed = state_attr('vacuum.roborock_s8_pro_ultra','fan_speed') | lower | trim %}
+          {% set expected = mapping[q] if q in mapping else 'balanced' %}
+          {% set current_speed = state_attr('vacuum.roborock_s8_pro_ultra','fan_speed') | string | lower | trim %}
           {{ current_speed if current_speed in mapping.values() and current_speed == expected else expected }}
