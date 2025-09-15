@@ -1,3 +1,4 @@
+Ollama Chat Card
 ```yaml
 type: custom:ollama-chat-card
 host: http://localhost
