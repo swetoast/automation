@@ -27,6 +27,6 @@ refresh_interval_ms: 60000
 go_time: 5
 empty_text: No trips at the moment
 entities:
-  - sensor.järntorget
-  - sensor.musikvägen
+  - sensor.mot_järntorget
+  - sensor.mot_musikvägen
 ```
