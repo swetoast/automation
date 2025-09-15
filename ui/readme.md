@@ -17,3 +17,16 @@ season_entity: sensor.season
 accuweather_entity: sensor.pollens_accuweather
 no_pollens_label: No significant pollen levels
 ```
+Västtrafik Card
+```
+type: custom:vasttrafik-table-card
+title: Departures
+show_delay: true
+logo: /local/iconset/vasttrafik.png
+refresh_interval_ms: 60000
+go_time: 5
+empty_text: No trips at the moment
+entities:
+  - sensor.järntorget
+  - sensor.musikvägen
+```
