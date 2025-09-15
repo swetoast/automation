@@ -18,7 +18,7 @@ accuweather_entity: sensor.pollens_accuweather
 no_pollens_label: No significant pollen levels
 ```
 Västtrafik Card
-```
+```yaml
 type: custom:vasttrafik-table-card
 title: Departures
 show_delay: true
