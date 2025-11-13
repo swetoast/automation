@@ -1,0 +1,60 @@
+alias: "Media: Balancing Media and Phone Calls"
+description: >
+  Pauses media when a call comes in, resumes after, and if the Bedroom TV is
+  playing, sends caller info to Google TV.
+triggers:
+  - entity_id: sensor.pixel_8_pro_phone_state
+    to: offhook
+    trigger: state
+  - entity_id: sensor.pixel_8_pro_phone_state
+    to: ringing
+    trigger: state
+conditions:
+  - condition: state
+    entity_id: person.toast
+    state: home
+actions:
+  - choose:
+      - conditions:
+          - condition: state
+            entity_id: media_player.bedroom_tv
+            state: playing
+        sequence:
+          - target:
+              entity_id: media_player.bedroom_tv
+            action: media_player.media_pause
+          - data:
+              title: Incoming Call
+              message: |
+                {{ state_attr('sensor.pixel_8_pro_active_notification_count',
+                              'android.title_com.google.android.dialer_1') }}
+            action: notify.android_tv_fire_tv
+      - conditions:
+          - condition: state
+            entity_id: media_player.plexamp_hideaway
+            state: playing
+        sequence:
+          - target:
+              entity_id: media_player.plexamp_hideaway
+            action: media_player.media_pause
+  - wait_for_trigger:
+      - entity_id: sensor.pixel_8_pro_phone_state
+        to: idle
+        trigger: state
+  - choose:
+      - conditions:
+          - condition: state
+            entity_id: media_player.bedroom_tv
+            state: paused
+        sequence:
+          - target:
+              entity_id: media_player.bedroom_tv
+            action: media_player.media_play
+      - conditions:
+          - condition: state
+            entity_id: media_player.plexamp_computer
+            state: paused
+        sequence:
+          - target:
+              entity_id: media_player.plexamp_computer
+            action: media_player.media_play
