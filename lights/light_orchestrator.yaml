@@ -13,10 +13,7 @@ triggers:
       hours: 0
       minutes: 0
       seconds: 1
-conditions:
-  - condition: state
-    entity_id: sensor.bedroom_sleep_status
-    state: awake
+conditions: []
 actions:
   - alias: Entryway
     if:
@@ -28,15 +25,19 @@ actions:
         entity_id: sensor.kitchen_lux_sensor
         below: 5
         alias: Brightness
-      - condition: not
+      - alias: False Flags
+        condition: not
         conditions:
           - condition: state
             entity_id: vacuum.roborock_s8_pro_ultra
-            state: cleaning
+            state:
+              - cleaning
+              - returning
           - condition: state
-            entity_id: vacuum.roborock_s8_pro_ultra
-            state: returning to dock
-        alias: False Flags
+            entity_id: sensor.bedroom_sleep_status
+            state:
+              - awake
+              - limbo
       - action: light.turn_on
         target:
           entity_id:
@@ -58,15 +59,14 @@ actions:
       - condition: state
         entity_id: binary_sensor.bathroom_occupancy_sensor
         state: "on"
-      - condition: not
+      - alias: False Flags
+        condition: not
         conditions:
           - condition: state
             entity_id: vacuum.roborock_s8_pro_ultra
-            state: cleaning
-          - condition: state
-            entity_id: vacuum.roborock_s8_pro_ultra
-            state: returning to dock
-        alias: False Flags
+            state:
+              - cleaning
+              - returning
     then:
       - action: light.turn_on
         target:
@@ -83,7 +83,11 @@ actions:
               entity_id: light.bathroom_lights_local
               state: "on"
           sequence:
-            - delay: "00:09:00"
+            - delay:
+                hours: 0
+                minutes: 5
+                seconds: 0
+                milliseconds: 0
             - if:
                 - condition: state
                   entity_id: binary_sensor.bathroom_motion_sensor
@@ -105,19 +109,20 @@ actions:
         entity_id: sensor.livingroom_lux_sensor
         below: 5
         alias: Brightness
-      - condition: not
+      - alias: False Flags
+        condition: not
         conditions:
           - condition: state
             entity_id: vacuum.roborock_s8_pro_ultra
-            state: cleaning
+            state:
+              - cleaning
+              - returning
           - condition: state
-            entity_id: vacuum.roborock_s8_pro_ultra
-            state: returning to dock
-          - condition: template
-            value_template: >-
-              {{ states('climate.air_conditioner') in ['cool','dry','fan_only']
-              }}
-        alias: False Flags
+            entity_id: climate.air_conditioner
+            state:
+              - cool
+              - dry
+              - fan_only
       - action: light.turn_on
         target:
           entity_id:
@@ -144,12 +149,17 @@ actions:
       - condition: state
         entity_id: binary_sensor.presence_sensor
         state: "off"
-      - condition: not
+      - alias: False Flags
+        condition: not
         conditions:
           - condition: state
             entity_id: binary_sensor.gaming_sensor
-            state: "on"
-        alias: False Flags
+            state:
+              - "on"
+          - condition: state
+            entity_id: media_player.plexamp_hideaway
+            state:
+              - playing
       - action: light.turn_off
         target:
           entity_id:
@@ -168,15 +178,14 @@ actions:
         entity_id: sensor.kitchen_lux_sensor
         below: 5
         alias: Brightness
-      - condition: not
+      - alias: False Flags
+        condition: not
         conditions:
           - condition: state
             entity_id: vacuum.roborock_s8_pro_ultra
-            state: cleaning
-          - condition: state
-            entity_id: vacuum.roborock_s8_pro_ultra
-            state: returning to dock
-        alias: False Flags
+            state:
+              - cleaning
+              - returning
       - condition: state
         entity_id:
           - light.kitchen_ceiling_lights
@@ -205,9 +214,25 @@ actions:
             - light.kitchen_ceiling_lights
             - light.kitchen_window_lights_local
         data: {}
-  - if: []
-    then: []
-    alias: Bedroom
+  - alias: Bedroom
+    if: []
+    then:
+      - alias: Brightness
+        condition: numeric_state
+        entity_id: sensor.bedroom_illuminance
+        below: 5
+      - alias: False Flags
+        condition: not
+        conditions:
+          - condition: state
+            entity_id: vacuum.roborock_s8_pro_ultra
+            state:
+              - cleaning
+              - returning
+          - condition: state
+            entity_id: sensor.bedroom_sleep_status
+            state:
+              - awake
     enabled: false
   - alias: Closet
     if:
@@ -233,4 +258,5 @@ actions:
         data: {}
         target:
           entity_id: light.closet
-mode: restart
+mode: parallel
+max: 5
