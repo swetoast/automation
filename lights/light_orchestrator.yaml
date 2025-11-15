@@ -6,6 +6,7 @@ triggers:
       - binary_sensor.kitchen_presence_sensor
       - binary_sensor.presence_sensor
       - binary_sensor.bathroom_occupancy_sensor
+      - binary_sensor.door_sensor_closet_door
     to: null
     trigger: state
     for:
@@ -17,6 +18,41 @@ conditions:
     entity_id: sensor.bedroom_sleep_status
     state: awake
 actions:
+  - alias: Entryway
+    if:
+      - condition: state
+        entity_id: binary_sensor.entryway_occupancy_sensor
+        state: "on"
+    then:
+      - condition: numeric_state
+        entity_id: sensor.kitchen_lux_sensor
+        below: 5
+        alias: Brightness
+      - condition: not
+        conditions:
+          - condition: state
+            entity_id: vacuum.roborock_s8_pro_ultra
+            state: cleaning
+          - condition: state
+            entity_id: vacuum.roborock_s8_pro_ultra
+            state: returning to dock
+        alias: False Flags
+      - action: light.turn_on
+        target:
+          entity_id:
+            - light.entryway_ceiling_lights
+            - light.entryway_wall_light_local
+      - wait_for_trigger:
+          - trigger: state
+            entity_id: binary_sensor.entryway_occupancy_sensor
+            to: "off"
+            for:
+              seconds: 30
+      - action: light.turn_off
+        target:
+          entity_id:
+            - light.entryway_ceiling_lights
+            - light.entryway_wall_light_local
   - alias: Bathroom
     if:
       - condition: state
@@ -169,39 +205,32 @@ actions:
             - light.kitchen_ceiling_lights
             - light.kitchen_window_lights_local
         data: {}
-  - alias: Entryway
+  - if: []
+    then: []
+    alias: Bedroom
+    enabled: false
+  - alias: Closet
     if:
       - condition: state
-        entity_id: binary_sensor.entryway_occupancy_sensor
-        state: "on"
+        entity_id: binary_sensor.door_sensor_closet_door
+        state:
+          - "on"
     then:
-      - condition: numeric_state
-        entity_id: sensor.kitchen_lux_sensor
-        below: 5
-        alias: Brightness
-      - condition: not
-        conditions:
-          - condition: state
-            entity_id: vacuum.roborock_s8_pro_ultra
-            state: cleaning
-          - condition: state
-            entity_id: vacuum.roborock_s8_pro_ultra
-            state: returning to dock
-        alias: False Flags
       - action: light.turn_on
+        metadata: {}
+        data: {}
         target:
-          entity_id:
-            - light.entryway_ceiling_lights
-            - light.entryway_wall_light_local
+          entity_id: light.closet
       - wait_for_trigger:
           - trigger: state
-            entity_id: binary_sensor.entryway_occupancy_sensor
-            to: "off"
-            for:
-              seconds: 30
+            entity_id:
+              - binary_sensor.door_sensor_closet_door
+            from:
+              - "on"
+              - "off"
       - action: light.turn_off
+        metadata: {}
+        data: {}
         target:
-          entity_id:
-            - light.entryway_ceiling_lights
-            - light.entryway_wall_light_local
+          entity_id: light.closet
 mode: restart
