@@ -1,0 +1,207 @@
+alias: "Light: Orchestrator"
+description: ""
+triggers:
+  - entity_id:
+      - binary_sensor.entryway_occupancy_sensor
+      - binary_sensor.kitchen_presence_sensor
+      - binary_sensor.presence_sensor
+      - binary_sensor.bathroom_occupancy_sensor
+    to: null
+    trigger: state
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 1
+conditions:
+  - condition: state
+    entity_id: sensor.bedroom_sleep_status
+    state: awake
+actions:
+  - alias: Bathroom
+    if:
+      - condition: state
+        entity_id: binary_sensor.bathroom_occupancy_sensor
+        state: "on"
+      - condition: not
+        conditions:
+          - condition: state
+            entity_id: vacuum.roborock_s8_pro_ultra
+            state: cleaning
+          - condition: state
+            entity_id: vacuum.roborock_s8_pro_ultra
+            state: returning to dock
+        alias: False Flags
+    then:
+      - action: light.turn_on
+        target:
+          entity_id: light.bathroom_lights_local
+        data:
+          rgb_color:
+            - 255
+            - 152
+            - 60
+          brightness_pct: 100
+      - repeat:
+          while:
+            - condition: state
+              entity_id: light.bathroom_lights_local
+              state: "on"
+          sequence:
+            - delay: "00:09:00"
+            - if:
+                - condition: state
+                  entity_id: binary_sensor.bathroom_motion_sensor
+                  state: "on"
+              then:
+                - delay: "00:05:00"
+              else:
+                - action: light.turn_off
+                  target:
+                    entity_id: light.bathroom_lights_local
+                - stop: No motion, shutting down
+  - alias: Livingroom
+    if:
+      - condition: state
+        entity_id: binary_sensor.presence_sensor
+        state: "on"
+    then:
+      - condition: numeric_state
+        entity_id: sensor.livingroom_lux_sensor
+        below: 5
+        alias: Brightness
+      - condition: not
+        conditions:
+          - condition: state
+            entity_id: vacuum.roborock_s8_pro_ultra
+            state: cleaning
+          - condition: state
+            entity_id: vacuum.roborock_s8_pro_ultra
+            state: returning to dock
+          - condition: template
+            value_template: >-
+              {{ states('climate.air_conditioner') in ['cool','dry','fan_only']
+              }}
+        alias: False Flags
+      - action: light.turn_on
+        target:
+          entity_id:
+            - light.livingroom_celing_lights
+            - light.livingroom_desktop_lighs
+            - light.smart_light_local
+            - light.livingroom_wall_local
+          device_id: 53ee26d067383ebd0018b8cd0d46e304
+      - wait_for_trigger:
+          - trigger: state
+            entity_id: binary_sensor.presence_sensor
+            to: "off"
+            for:
+              seconds: 30
+      - action: light.turn_off
+        target:
+          entity_id:
+            - light.livingroom_celing_lights
+            - light.livingroom_desktop_lighs
+            - light.smart_light_local
+            - light.livingroom_wall_local
+          device_id: 53ee26d067383ebd0018b8cd0d46e304
+    else:
+      - condition: state
+        entity_id: binary_sensor.presence_sensor
+        state: "off"
+      - condition: not
+        conditions:
+          - condition: state
+            entity_id: binary_sensor.gaming_sensor
+            state: "on"
+        alias: False Flags
+      - action: light.turn_off
+        target:
+          entity_id:
+            - light.livingroom_celing_lights
+            - light.livingroom_desktop_lighs
+            - light.smart_light_local
+            - light.livingroom_wall_local
+          device_id: 53ee26d067383ebd0018b8cd0d46e304
+  - alias: Kitchen
+    if:
+      - condition: state
+        entity_id: binary_sensor.kitchen_presence_sensor
+        state: "on"
+    then:
+      - condition: numeric_state
+        entity_id: sensor.kitchen_lux_sensor
+        below: 5
+        alias: Brightness
+      - condition: not
+        conditions:
+          - condition: state
+            entity_id: vacuum.roborock_s8_pro_ultra
+            state: cleaning
+          - condition: state
+            entity_id: vacuum.roborock_s8_pro_ultra
+            state: returning to dock
+        alias: False Flags
+      - condition: state
+        entity_id:
+          - light.kitchen_ceiling_lights
+          - light.kitchen_window_lights_local
+        state: "off"
+      - action: light.turn_on
+        target:
+          entity_id:
+            - light.kitchen_ceiling_lights
+            - light.kitchen_window_lights_local
+        data: {}
+      - wait_for_trigger:
+          - trigger: state
+            entity_id: binary_sensor.kitchen_presence_sensor
+            to: "off"
+            for:
+              seconds: 30
+      - condition: state
+        entity_id:
+          - light.kitchen_ceiling_lights
+          - light.kitchen_window_lights_local
+        state: "on"
+      - action: light.turn_off
+        target:
+          entity_id:
+            - light.kitchen_ceiling_lights
+            - light.kitchen_window_lights_local
+        data: {}
+  - alias: Entryway
+    if:
+      - condition: state
+        entity_id: binary_sensor.entryway_occupancy_sensor
+        state: "on"
+    then:
+      - condition: numeric_state
+        entity_id: sensor.kitchen_lux_sensor
+        below: 5
+        alias: Brightness
+      - condition: not
+        conditions:
+          - condition: state
+            entity_id: vacuum.roborock_s8_pro_ultra
+            state: cleaning
+          - condition: state
+            entity_id: vacuum.roborock_s8_pro_ultra
+            state: returning to dock
+        alias: False Flags
+      - action: light.turn_on
+        target:
+          entity_id:
+            - light.entryway_ceiling_lights
+            - light.entryway_wall_light_local
+      - wait_for_trigger:
+          - trigger: state
+            entity_id: binary_sensor.entryway_occupancy_sensor
+            to: "off"
+            for:
+              seconds: 30
+      - action: light.turn_off
+        target:
+          entity_id:
+            - light.entryway_ceiling_lights
+            - light.entryway_wall_light_local
+mode: restart
