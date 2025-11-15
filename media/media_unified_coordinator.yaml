@@ -1,0 +1,102 @@
+alias: "Media: Unified Coordinator"
+description: >
+  Handles media pause/resume during calls, stops Chromecast when Harmony Hub
+  powers off, and saves energy by turning off TV when idle too long.
+triggers:
+  - id: phone_offhook
+    entity_id: sensor.pixel_8_pro_phone_state
+    to: offhook
+    trigger: state
+  - id: phone_ringing
+    entity_id: sensor.pixel_8_pro_phone_state
+    to: ringing
+    trigger: state
+  - id: harmony_off
+    entity_id: select.harmony_hub_activities
+    to: power_off
+    trigger: state
+  - id: energy_idle
+    entity_id: media_player.bedroom_tv
+    to: idle
+    for: "00:10:00"
+    trigger: state
+  - id: energy_off
+    entity_id: media_player.bedroom_tv
+    to: "off"
+    for: "00:10:00"
+    trigger: state
+conditions: []
+actions:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id:
+              - phone_offhook
+              - phone_ringing
+        sequence:
+          - choose:
+              - conditions:
+                  - condition: state
+                    entity_id: media_player.bedroom_tv
+                    state: playing
+                sequence:
+                  - action: media_player.media_pause
+                    target:
+                      entity_id: media_player.bedroom_tv
+                  - action: notify.android_tv_fire_tv
+                    data:
+                      title: Incoming Call
+                      message: >
+                        {{
+                        state_attr('sensor.pixel_8_pro_active_notification_count',
+                                      'android.title_com.google.android.dialer_1') }}
+              - conditions:
+                  - condition: state
+                    entity_id: media_player.plexamp_hideaway
+                    state: playing
+                sequence:
+                  - action: media_player.media_pause
+                    target:
+                      entity_id: media_player.plexamp_hideaway
+          - wait_for_trigger:
+              - entity_id: sensor.pixel_8_pro_phone_state
+                to: idle
+                trigger: state
+          - choose:
+              - conditions:
+                  - condition: state
+                    entity_id: media_player.bedroom_tv
+                    state: paused
+                sequence:
+                  - action: media_player.media_play
+                    target:
+                      entity_id: media_player.bedroom_tv
+              - conditions:
+                  - condition: state
+                    entity_id: media_player.plexamp_hideaway
+                    state: paused
+                sequence:
+                  - action: media_player.media_play
+                    target:
+                      entity_id: media_player.plexamp_hideaway
+      - conditions:
+          - condition: trigger
+            id: harmony_off
+        sequence:
+          - action: media_player.media_stop
+            target:
+              entity_id: media_player.bedroom_tv
+      - conditions:
+          - condition: trigger
+            id:
+              - energy_idle
+              - energy_off
+          - condition: state
+            entity_id: select.harmony_hub_activities
+            state: Watch Mediacenter
+        sequence:
+          - action: remote.turn_off
+            target:
+              entity_id: remote.harmony_hub
+mode: parallel
+max: 3
