@@ -3,119 +3,79 @@ sequence:
     data:
       task_name: weather comfort report
       instructions: >
-        Current weather summary: Condition: {{ states('sensor.weather_summary')
-        }} Average Temp: {{
-        state_attr('sensor.weather_summary','average_outside_temperature') }} °C
-        Average Humidity: {{
-        state_attr('sensor.weather_summary','average_outside_humidity') }} %
-        Feels Like: {{ state_attr('sensor.weather_summary','feels_like') }} °C
-        Dew Point: {{ state_attr('sensor.weather_summary','dew_point') }} °C
-        Heat Index: {{ state_attr('sensor.weather_summary','heat_index') }}
-        Humidex: {{ state_attr('sensor.weather_summary','humidex') }} Humidex
-        Perception: {{ state_attr('sensor.weather_summary','humidex_perception')
-        }} Thoms Discomfort: {{
-        state_attr('sensor.weather_summary','thoms_discomfort') }} Moist Air
-        Enthalpy: {{ state_attr('sensor.weather_summary','moist_air_enthalpy')
-        }} kJ/kg Time of Day: {{
-        state_attr('sensor.weather_summary','time_of_day') }} Holiday: {{
-        state_attr('sensor.weather_summary','holiday') }} Comfort Level: {{
-        state_attr('sensor.weather_summary','weathersense_comfort_level') }}
-        Comfort Description: {{
-        state_attr('sensor.weather_summary','weathersense_comfort_description')
-        }} Comfort Explanation: {{
-        state_attr('sensor.weather_summary','weathersense_comfort_explanation')
-        }} Calculation Method: {{
-        state_attr('sensor.weather_summary','weathersense_calc_method') }}
-        Temperature: {{ state_attr('sensor.weather_summary','weathersense_temp')
-        }} °C Humidity: {{
-        state_attr('sensor.weather_summary','weathersense_humidity') }} % Wind
-        Speed: {{ state_attr('sensor.weather_summary','weathersense_wind_speed')
-        }} km/h Pressure: {{
-        state_attr('sensor.weather_summary','weathersense_pressure') }} hPa
-        Timestamp: {{ state_attr('sensor.weather_summary','weathersense_time')
-        }} Comfortable: {{
-        state_attr('sensor.weather_summary','weathersense_is_comfortable') }}
-        Forecast Next 12h: {{
-        state_attr('sensor.weather_summary','forecast_next_12h') }}
+        Current weather summary:
+          Condition: {{ states('sensor.weather_summary') }}
+          Average Temp: {{ state_attr('sensor.weather_summary','average_outside_temperature') }} °C
+          Average Humidity: {{ state_attr('sensor.weather_summary','average_outside_humidity') }} %
+          Feels Like: {{ state_attr('sensor.weather_summary','feels_like') }} °C
+          Dew Point: {{ state_attr('sensor.weather_summary','dew_point') }} °C
+          Heat Index: {{ state_attr('sensor.weather_summary','heat_index') }}
+          Humidex: {{ state_attr('sensor.weather_summary','humidex') }}
+          Humidex Perception: {{ state_attr('sensor.weather_summary','humidex_perception') }}
+          Thoms Discomfort: {{ state_attr('sensor.weather_summary','thoms_discomfort') }}
+          Moist Air Enthalpy: {{ state_attr('sensor.weather_summary','moist_air_enthalpy') }} kJ/kg
+          Time of Day: {{ state_attr('sensor.weather_summary','time_of_day') }}
+          Holiday: {{ state_attr('sensor.weather_summary','holiday') }}
+          Comfort Level: {{ state_attr('sensor.weather_summary','weathersense_comfort_level') }}
+          Comfort Description: {{ state_attr('sensor.weather_summary','weathersense_comfort_description') }}
+          Comfort Explanation: {{ state_attr('sensor.weather_summary','weathersense_comfort_explanation') }}
+          Calculation Method: {{ state_attr('sensor.weather_summary','weathersense_calc_method') }}
+          Temperature: {{ state_attr('sensor.weather_summary','weathersense_temp') }} °C
+          Humidity: {{ state_attr('sensor.weather_summary','weathersense_humidity') }} %
+          Wind Speed: {{ state_attr('sensor.weather_summary','weathersense_wind_speed') }} km/h
+          Pressure: {{ state_attr('sensor.weather_summary','weathersense_pressure') }} hPa
+          Timestamp: {{ state_attr('sensor.weather_summary','weathersense_time') }}
+          Comfortable: {{ state_attr('sensor.weather_summary','weathersense_is_comfortable') }}
+          Forecast Next 12h: {{ state_attr('sensor.weather_summary','forecast_next_12h') }}
 
-        Spring weather summary: Rain Alert: {{
-        state_attr('sensor.spring_weather_summary','rain_alert') }} Thunder
-        Probability: {{
-        state_attr('sensor.spring_weather_summary','thunder_probability') }}
-        Mosquitos: {{ state_attr('sensor.spring_weather_summary','mosquitos') }}
-        Outdoor Pests: {{
-        state_attr('sensor.spring_weather_summary','outdoor_pests') }} Frost
-        Point: {{ state_attr('sensor.spring_weather_summary','frost_point') }}
-        Frost Risk: {{ state_attr('sensor.spring_weather_summary','frost_risk')
-        }} Frost Perception: {{
-        state_attr('sensor.spring_weather_summary','frost_perception') }} Frozen
-        Precipitation: {{
-        state_attr('sensor.spring_weather_summary','frozen_precipitation') }}
-        Sun Exposure Time: {{
-        state_attr('sensor.spring_weather_summary','sun_exposure_time') }} SPF
-        Recommendation: {{
-        state_attr('sensor.spring_weather_summary','spf_recommendation') }} Sun
-        Exposure Duration: {{
-        state_attr('sensor.spring_weather_summary','sun_exposure_duration') }}
-        SPF Recommendation Level: {{
-        state_attr('sensor.spring_weather_summary','spf_recommendation_level')
-        }} Pollen Tree: {{
-        state_attr('sensor.spring_weather_summary','pollen_tree') }} Pollen
-        Grass: {{ state_attr('sensor.spring_weather_summary','pollen_grass') }}
-        Pollen Mold: {{
-        state_attr('sensor.spring_weather_summary','pollen_mold') }} Pollen
-        Ragweed: {{ state_attr('sensor.spring_weather_summary','pollen_ragweed')
-        }}
+        Spring weather summary:
+          Rain Alert: {{ state_attr('sensor.spring_weather_summary','rain_alert') }}
+          Thunder Probability: {{ state_attr('sensor.spring_weather_summary','thunder_probability') }}
+          Mosquitos: {{ state_attr('sensor.spring_weather_summary','mosquitos') }}
+          Outdoor Pests: {{ state_attr('sensor.spring_weather_summary','outdoor_pests') }}
+          Frost Point: {{ state_attr('sensor.spring_weather_summary','frost_point') }}
+          Frost Risk: {{ state_attr('sensor.spring_weather_summary','frost_risk') }}
+          Frost Perception: {{ state_attr('sensor.spring_weather_summary','frost_perception') }}
+          Frozen Precipitation: {{ state_attr('sensor.spring_weather_summary','frozen_precipitation') }}
+          Sun Exposure Time: {{ state_attr('sensor.spring_weather_summary','sun_exposure_time') }}
+          SPF Recommendation: {{ state_attr('sensor.spring_weather_summary','spf_recommendation') }}
+          Sun Exposure Duration: {{ state_attr('sensor.spring_weather_summary','sun_exposure_duration') }}
+          SPF Recommendation Level: {{ state_attr('sensor.spring_weather_summary','spf_recommendation_level') }}
+          Pollen Tree: {{ state_attr('sensor.spring_weather_summary','pollen_tree') }}
+          Pollen Grass: {{ state_attr('sensor.spring_weather_summary','pollen_grass') }}
+          Pollen Mold: {{ state_attr('sensor.spring_weather_summary','pollen_mold') }}
+          Pollen Ragweed: {{ state_attr('sensor.spring_weather_summary','pollen_ragweed') }}
 
-        Summer weather summary: Sun Exposure Time: {{
-        state_attr('sensor.summer_weather_summary','sun_exposure_time') }} SPF
-        Recommendation: {{
-        state_attr('sensor.summer_weather_summary','spf_recommendation') }} UV
-        Warning: {{ state_attr('sensor.summer_weather_summary','uv_warning') }}
-        Summer Scharlau State: {{
-        state_attr('sensor.summer_weather_summary','summer_scharlau_state') }}
-        Summer Simmer State: {{
-        state_attr('sensor.summer_weather_summary','summer_simmer_state') }}
-        Thoms Discomfort State: {{
-        state_attr('sensor.summer_weather_summary','thoms_discomfort_state') }}
-        Outdoor Pests: {{
-        state_attr('sensor.summer_weather_summary','outdoor_pests') }}
+        Summer weather summary:
+          Sun Exposure Time: {{ state_attr('sensor.summer_weather_summary','sun_exposure_time') }}
+          SPF Recommendation: {{ state_attr('sensor.summer_weather_summary','spf_recommendation') }}
+          UV Warning: {{ state_attr('sensor.summer_weather_summary','uv_warning') }}
+          Summer Scharlau State: {{ state_attr('sensor.summer_weather_summary','summer_scharlau_state') }}
+          Summer Simmer State: {{ state_attr('sensor.summer_weather_summary','summer_simmer_state') }}
+          Thoms Discomfort State: {{ state_attr('sensor.summer_weather_summary','thoms_discomfort_state') }}
+          Outdoor Pests: {{ state_attr('sensor.summer_weather_summary','outdoor_pests') }}
 
-        Autumn weather summary: Frost Risk: {{
-        state_attr('sensor.autumn_weather_summary','frost_risk') }} Frozen
-        Precipitation: {{
-        state_attr('sensor.autumn_weather_summary','frozen_precipitation') }}
-        Sun Exposure Time: {{
-        state_attr('sensor.autumn_weather_summary','sun_exposure_time') }} SPF
-        Recommendation: {{
-        state_attr('sensor.autumn_weather_summary','spf_recommendation') }}
-        Thunder Probability: {{
-        state_attr('sensor.autumn_weather_summary','thunder_probability') }}
-        Mosquitos: {{ state_attr('sensor.autumn_weather_summary','mosquitos') }}
-        Outdoor Pests: {{
-        state_attr('sensor.autumn_weather_summary','outdoor_pests') }} Autumn
-        Scharlau State: {{
-        state_attr('sensor.autumn_weather_summary','autumn_scharlau_state') }}
+        Autumn weather summary:
+          Frost Risk: {{ state_attr('sensor.autumn_weather_summary','frost_risk') }}
+          Frozen Precipitation: {{ state_attr('sensor.autumn_weather_summary','frozen_precipitation') }}
+          Sun Exposure Time: {{ state_attr('sensor.autumn_weather_summary','sun_exposure_time') }}
+          SPF Recommendation: {{ state_attr('sensor.autumn_weather_summary','spf_recommendation') }}
+          Thunder Probability: {{ state_attr('sensor.autumn_weather_summary','thunder_probability') }}
+          Mosquitos: {{ state_attr('sensor.autumn_weather_summary','mosquitos') }}
+          Outdoor Pests: {{ state_attr('sensor.autumn_weather_summary','outdoor_pests') }}
+          Autumn Scharlau State: {{ state_attr('sensor.autumn_weather_summary','autumn_scharlau_state') }}
 
-        Winter weather summary: Frost Point: {{
-        state_attr('sensor.winter_weather_summary','frost_point') }} Frost Risk:
-        {{ state_attr('sensor.winter_weather_summary','frost_risk') }} Frozen
-        Precipitation: {{
-        state_attr('sensor.winter_weather_summary','frozen_precipitation') }}
-        Thunder Probability: {{
-        state_attr('sensor.winter_weather_summary','thunder_probability') }}
-        Home Thunder Probability: {{
-        state_attr('sensor.winter_weather_summary','home_thunder_probability')
-        }} Aurora Visibility: {{
-        state_attr('sensor.winter_weather_summary','aurora_visibility') }}
-        Winter Scharlau Temperature: {{
-        state_attr('sensor.winter_weather_summary','winter_scharlau_temperature')
-        }} Winter Scharlau Humidity: {{
-        state_attr('sensor.winter_weather_summary','winter_scharlau_humidity')
-        }} Winter Scharlau Index: {{
-        state_attr('sensor.winter_weather_summary','winter_scharlau_index') }}
-        Frost Perception: {{
-        state_attr('sensor.winter_weather_summary','frost_perception') }}
+        Winter weather summary:
+          Frost Point: {{ state_attr('sensor.winter_weather_summary','frost_point') }}
+          Frost Risk: {{ state_attr('sensor.winter_weather_summary','frost_risk') }}
+          Frozen Precipitation: {{ state_attr('sensor.winter_weather_summary','frozen_precipitation') }}
+          Thunder Probability: {{ state_attr('sensor.winter_weather_summary','thunder_probability') }}
+          Home Thunder Probability: {{ state_attr('sensor.winter_weather_summary','home_thunder_probability') }}
+          Aurora Visibility: {{ state_attr('sensor.winter_weather_summary','aurora_visibility') }}
+          Winter Scharlau Temperature: {{ state_attr('sensor.winter_weather_summary','winter_scharlau_temperature') }}
+          Winter Scharlau Humidity: {{ state_attr('sensor.winter_weather_summary','winter_scharlau_humidity') }}
+          Winter Scharlau Index: {{ state_attr('sensor.winter_weather_summary','winter_scharlau_index') }}
+          Frost Perception: {{ state_attr('sensor.winter_weather_summary','frost_perception') }}
 
         Rules:
 
