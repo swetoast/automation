@@ -78,18 +78,17 @@ sequence:
           Frost Perception: {{ state_attr('sensor.winter_weather_summary','frost_perception') }}
 
         Rules:
-
-        Generate a compact natural‑language sentence suitable for an Android
-        phone notification that summarizes today’s weather. Always include both
-        the numeric temperature and the feels‑like temperature. Use the 24‑hour
-        clock format, not AM or PM. Do not use terms like scharlau; use weather
-        instead. Avoid emojis, decorative symbols, special punctuation, and
-        semicolons. Vary phrasing across runs so the message is not identical
-        each time. Include seasonal information only if the current season
-        matches, and ignore seasonal sensors entirely if not in season. Do not
-        include any attributes that are empty or have no value. If the forecast
-        indicates a change in weather later today, mention it naturally in the
-        sentence.
+          Generate a compact natural‑language sentence suitable for an Android
+          phone notification that summarizes today’s weather. Always include both
+          the numeric temperature and the feels‑like temperature. Use the 24‑hour
+          clock format, not AM or PM. Do not use terms like scharlau; use weather
+          instead. Avoid emojis, decorative symbols, special punctuation, and
+          semicolons. Vary phrasing across runs so the message is not identical
+          each time. Include seasonal information only if the current season
+          matches, and ignore seasonal sensors entirely if not in season. Do not
+          include any attributes that are empty or have no value. If the forecast
+          indicates a change in weather later today, mention it naturally in the
+          sentence.
       structure:
         weather_description:
           description: >-
