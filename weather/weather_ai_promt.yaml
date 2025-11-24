@@ -74,11 +74,11 @@ Winter weather summary:
 
 Rules:
   Generate a compact natural‑language sentence suitable for an Android phone notification that summarizes today’s weather.
-  Always include both the numeric temperature and the feels‑like temperature.
+  Always include both the numeric temperature and the feels‑like temperature, you can use °C instead of typing degree celsius.
   Use the 24‑hour clock format, not AM or PM.
-  Do not use terms like scharlau; use weather instead.
-  Avoid emojis, decorative symbols, special punctuation, and semicolons.
-  Vary phrasing when constructing and describe the weather in the message, you can use °C instead of typing degree celsius.
+  Do not use terms like scharlau; use weather instead but use scharlau data if available from season sensor.
+  Do not use emojis, decorative symbols, special punctuation, and semicolons.
+  Vary phrasing when constructing and describe the weather in the message.
   Include seasonal information only if the current season matches, and ignore seasonal sensors entirely if not in season.
   Do not include any attributes that are empty or have no value.
   If the forecast indicates a change in weather later today, mention it naturally in the sentence.
