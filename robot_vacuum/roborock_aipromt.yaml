@@ -3,6 +3,7 @@ data:
   instructions: |
     Current cleaning summary:
       Status: {{ states('sensor.roborock_s8_pro_ultra_status') }}
+      Vacuum State: {{ states('vacuum.roborock_s8_pro_ultra') }}
       Progress: {{ states('sensor.roborock_s8_pro_ultra_cleaning_progress') }} %
       Area: {{ states('sensor.roborock_s8_pro_ultra_cleaning_area') }} m²
       Time: {{ states('sensor.roborock_s8_pro_ultra_cleaning_time') }} min
@@ -35,15 +36,18 @@ data:
 
     Rules:
       Generate a compact natural‑language sentence suitable for an Android phone notification that summarizes the cleaning.
-      Always include progress (%), area (m²), time (min), and battery (%).
+      Always include progress (%), area (m²), time (min), battery (%), and vacuum state.
       Mention mop/water information only if mop is attached or water shortage occurs.
       Report errors only if not 'none' or 'ok'.
       Use the 24‑hour clock format for timestamps.
       Do not use emojis, decorative symbols, special punctuation, or semicolons.
-      The blue room is kitchen, The purple room is bedroom, the yellow room is Entryway, Orange is livingroom and the lines in the image is where the robot vacuum is.
       Vary phrasing when constructing and describe the cleaning naturally in the message.
       Ignore attributes that are empty or have no value.
       If cleaning is ongoing, mention live progress; if finished, summarize the session.
+      The blue room is Kitchen, the purple room is Bedroom, the yellow room is Entryway, the orange room is Livingroom.
+      The lines in the attached image represent the robot vacuum’s current cleaning path.
+      Cleaning is only considered finished when progress reaches 100%. After that, the vacuum may remain docked while rinsing or emptying the bin or mop.
+      Use natural language to describe the cleaning instead of listing raw stats — e.g., say “Roborock is halfway through the living room, covering 20 m² in about 30 minutes with 60% battery left” rather than “Progress: 50%, Area: 20 m², Time: 30 min, Battery: 60%.”
   task_name: Cleaning
   attachments:
     media_content_id: media-source://image/image.roborock_s8_pro_ultra_home
@@ -57,4 +61,3 @@ data:
         - {}
         - media_content_type: app
           media_content_id: media-source://image
- 
