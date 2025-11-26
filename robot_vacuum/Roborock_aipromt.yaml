@@ -1,0 +1,60 @@
+action: ai_task.generate_data
+data:
+  instructions: |
+    Current cleaning summary:
+      Status: {{ states('sensor.roborock_s8_pro_ultra_status') }}
+      Progress: {{ states('sensor.roborock_s8_pro_ultra_cleaning_progress') }} %
+      Area: {{ states('sensor.roborock_s8_pro_ultra_cleaning_area') }} m²
+      Time: {{ states('sensor.roborock_s8_pro_ultra_cleaning_time') }} min
+      Battery: {{ states('sensor.roborock_s8_pro_ultra_battery') }} %
+      Fan Speed: {{ state_attr('vacuum.roborock_s8_pro_ultra','fan_speed') }}
+      Mop Mode: {{ states('select.roborock_s8_pro_ultra_mop_mode') }}
+      Mop Intensity: {{ states('select.roborock_s8_pro_ultra_mop_intensity') }}
+      Mop Attached: {{ states('binary_sensor.roborock_s8_pro_ultra_mop_attached') }}
+      Water Box Attached: {{ states('binary_sensor.roborock_s8_pro_ultra_water_box_attached') }}
+      Water Shortage: {{ states('binary_sensor.roborock_s8_pro_ultra_water_shortage') }}
+      Mop Drying: {{ states('binary_sensor.roborock_s8_pro_ultra_mop_drying') }}
+      Mop Drying Remaining: {{ states('sensor.roborock_s8_pro_ultra_mop_drying_remaining_time') }} s
+      Dock Error: {{ states('sensor.roborock_s8_pro_ultra_dock_error') }}
+      Vacuum Error: {{ states('sensor.roborock_s8_pro_ultra_vacuum_error') }}
+      Last Clean Begin: {{ states('sensor.roborock_s8_pro_ultra_last_clean_begin') }}
+      Last Clean End: {{ states('sensor.roborock_s8_pro_ultra_last_clean_end') }}
+
+    Maintenance summary:
+      Main Brush Time Left: {{ states('sensor.roborock_s8_pro_ultra_main_brush_time_left') }} h
+      Side Brush Time Left: {{ states('sensor.roborock_s8_pro_ultra_side_brush_time_left') }} h
+      Filter Time Left: {{ states('sensor.roborock_s8_pro_ultra_filter_time_left') }} h
+      Sensor Time Left: {{ states('sensor.roborock_s8_pro_ultra_sensor_time_left') }} h
+      Dock Maintenance Brush Time Left: {{ states('sensor.roborock_s8_pro_ultra_dock_maintenance_brush_time_left') }} h
+      Dock Strainer Time Left: {{ states('sensor.roborock_s8_pro_ultra_dock_strainer_time_left') }} h
+
+    Totals:
+      Total Cleaning Area: {{ states('sensor.roborock_s8_pro_ultra_total_cleaning_area') }} m²
+      Total Cleaning Count: {{ states('sensor.roborock_s8_pro_ultra_total_cleaning_count') }}
+      Total Cleaning Time: {{ states('sensor.roborock_s8_pro_ultra_total_cleaning_time') }} h
+
+    Rules:
+      Generate a compact natural‑language sentence suitable for an Android phone notification that summarizes the cleaning.
+      Always include progress (%), area (m²), time (min), and battery (%).
+      Mention mop/water information only if mop is attached or water shortage occurs.
+      Report errors only if not 'none' or 'ok'.
+      Use the 24‑hour clock format for timestamps.
+      Do not use emojis, decorative symbols, special punctuation, or semicolons.
+      The blue room is kitchen, The purple room is bedroom, the yellow room is Entryway, Orange is livingroom and the lines in the image is where the robot vacuum is.
+      Vary phrasing when constructing and describe the cleaning naturally in the message.
+      Ignore attributes that are empty or have no value.
+      If cleaning is ongoing, mention live progress; if finished, summarize the session.
+  task_name: Cleaning
+  attachments:
+    media_content_id: media-source://image/image.roborock_s8_pro_ultra_home
+    media_content_type: image/jpeg
+    metadata:
+      title: Roborock S8 Pro Ultra Home
+      thumbnail: /api/image_proxy/image.roborock_s8_pro_ultra_home
+      media_class: video
+      children_media_class: null
+      navigateIds:
+        - {}
+        - media_content_type: app
+          media_content_id: media-source://image
+ 
