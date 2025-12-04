@@ -1,9 +1,10 @@
-- platform: template
-  sensors:
-    lightning_strike_alert:
-      friendly_name: "Lightning Strike Alert"
-      device_class: safety
-      value_template: >-
+- triggers:
+    - trigger: state
+      entity_id: lightning_monitor
+    binary_sensor:
+      - name: Lightning Strike Alert
+        device_class: safety
+        state: >
         {% set raw = states
            | selectattr('entity_id','match','^geo_location\.lightning_strike_')
            | list %}
