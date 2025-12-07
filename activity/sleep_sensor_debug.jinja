@@ -1,9 +1,8 @@
-
 {% if not is_state('person.toast', 'home') %}
-  {% set sleep_probability = 0 %}
-  Summary — Sleep {{ (sleep_probability * 100) | round(0) }}% (Threshold 60%) • Asleep: False
+Not home → sleep_probability = 0%
 {% else %}
 
+{# --- Core state flags --- #}
 {% set is_bedtime_mode = is_state('binary_sensor.google_pixel_watch_2_bedtime_mode', 'on') | int %}
 {% set is_watch_on_wrist = is_state('binary_sensor.google_pixel_watch_2_on_body_sensor', 'on') | int %}
 {% set is_phone_in_doze = is_state('binary_sensor.pixel_8_pro_doze_mode', 'on') | int %}
@@ -11,33 +10,31 @@
 
 {% set presence_livingroom = is_state('binary_sensor.presence_sensor', 'on') | int %}
 {% set presence_kitchen = is_state('binary_sensor.kitchen_presence_sensor', 'on') | int %}
-{% set presence_bathroom = is_state('binary_sensor.bathroom_occupancy', 'on') | int %}
-{% set presence_entryway = is_state('binary_sensor.entryway_occupancy', 'on') | int %}
+{% set presence_bathroom = is_state('binary_sensor.aqura_bathroom_occupancy_sensor', 'on') | int %}
+{% set presence_entryway = is_state('binary_sensor.entryway_detection', 'on') | int %}
 {% set presence_bedroom = is_state('binary_sensor.aqara_presence_multisensor_fp300_occupancy', 'on') | int %}
 {% set presence_elsewhere = (presence_livingroom == 1) or (presence_kitchen == 1) or (presence_bathroom == 1) or (presence_entryway == 1) %}
 
+{# --- Heart rate with logistic curve (no exp()) --- #}
 {% set heart_rate_current_bpm = states('sensor.my_current_heart_rate') | float(0) %}
 {% set heart_rate_resting_bpm = states('sensor.peter_s_resting_heart_rate') | float(0) %}
 {% set heart_rate_delta_bpm = (heart_rate_current_bpm - heart_rate_resting_bpm) | float(0) %}
-{% if heart_rate_delta_bpm <= 5 %}
-  {% set heart_rate_sleep_factor = 1 %}
-{% elif heart_rate_delta_bpm <= 15 %}
-  {% set heart_rate_sleep_factor = 1 - ((heart_rate_delta_bpm - 5) / 10) * 0.6 %}
-{% elif heart_rate_delta_bpm <= 30 %}
-  {% set heart_rate_sleep_factor = 0.4 - ((heart_rate_delta_bpm - 15) / 15) * 0.35 %}
-{% else %}
-  {% set heart_rate_sleep_factor = 0.05 %}
-{% endif %}
+{% set k = 0.25 %}
+{% set x0 = 10 %}
+{% set heart_rate_sleep_factor = 1 / (1 + (2.71828 ** (k * (heart_rate_delta_bpm - x0)))) %}
 {% set heart_rate_sleep_factor = max(0, min(1, heart_rate_sleep_factor)) %}
 {% set heart_rate_awake_factor = 1 - heart_rate_sleep_factor %}
 
+{# --- Activity sensors --- #}
 {% set is_gaming_on = is_state('binary_sensor.gaming_sensor', 'on') | int %}
 {% set is_shower_on = is_state('binary_sensor.shower', 'on') | int %}
-
-{% set phone_motion_level = state_attr('sensor.pixel_8_pro_sleep_confidence', 'motion') | int(10) %}
-{% set phone_still_factor = max(0, min(1, (3 - phone_motion_level) / 3)) %}
 {% set is_phone_interactive = is_state('binary_sensor.pixel_8_pro_interactive', 'on') | int %}
 
+{# --- Motion factor --- #}
+{% set phone_motion_level = state_attr('sensor.pixel_8_pro_sleep_confidence', 'motion') | int(10) %}
+{% set phone_still_factor = max(0, min(1, (3 - phone_motion_level) / 3)) %}
+
+{# --- Environment factors --- #}
 {% set bedroom_illuminance_lux = states('sensor.bedroom_illuminace') | float(0) %}
 {% set livingroom_illuminance_lux = states('sensor.livingroom_lux_sensor') | float(0) %}
 {% set bedroom_noise_db = states('sensor.bedroom_sound_pressure') | float(0) %}
@@ -59,6 +56,7 @@
 {% set co2_rising_flag = (1 if co2_rise_tracker > 0.5 else 0) %}
 {% set voc_rising_flag = (1 if voc_rise_tracker > 0.5 else 0) %}
 
+{# --- Cooldowns --- #}
 {% set gaming_cooldown_min = 30 %}
 {% set gaming_on_state = is_state('binary_sensor.gaming_sensor', 'on') %}
 {% set gaming_last_change_ts = as_timestamp(states.binary_sensor.gaming_sensor.last_changed) %}
@@ -83,6 +81,7 @@
 {% set phone_remaining_cooldown = phone_cooldown_min if phone_on_state else max(0, phone_cooldown_min - phone_minutes_since_off) %}
 {% set phone_freshness_factor = phone_remaining_cooldown / phone_cooldown_min %}
 
+{# --- Sleep evidence --- #}
 {% set sleep_evidence_bedtime = 0.7 if is_bedtime_mode == 1 else 0.0 %}
 {% set sleep_evidence_phone_doze = 0.6 if is_phone_in_doze == 1 else 0.0 %}
 {% set sleep_evidence_comfort = 0.4 if is_comfort_ok == 1 else 0.0 %}
@@ -96,6 +95,7 @@
 {% set sleep_evidence_air_accumulation = max(0, min(1, (co2_rising_flag * 0.2) + (voc_rising_flag * 0.1))) %}
 {% set sleep_evidence_bedroom_presence = 0.6 if (presence_bedroom == 1 and not presence_elsewhere) else 0.0 %}
 
+{# --- Awake evidence --- #}
 {% set awake_evidence_hr = heart_rate_awake_factor * 0.8 %}
 {% set awake_evidence_phone_interactive = 0.9 if is_phone_interactive == 1 else 0.0 %}
 {% set awake_evidence_presence_elsewhere = 0.8 if presence_elsewhere else 0.0 %}
@@ -106,33 +106,141 @@
 {% set awake_evidence_recent_shower = (0.6 * shower_freshness_factor) if is_shower_on == 0 else 0.0 %}
 {% set awake_evidence_recent_phone = (0.6 * phone_freshness_factor) if (is_phone_interactive == 0 and is_bedtime_mode == 0) else 0.0 %}
 
+{# --- Raw probabilities --- #}
 {% set sleep_probability_raw = 1 - ((1 - sleep_evidence_bedtime) * (1 - sleep_evidence_phone_doze) * (1 - sleep_evidence_comfort) * (1 - sleep_evidence_darkness) * (1 - sleep_evidence_lightdiff) * (1 - sleep_evidence_quietness) * (1 - sleep_evidence_temperature) * (1 - sleep_evidence_humidity) * (1 - sleep_evidence_hr) * (1 - sleep_evidence_phone_still) * (1 - sleep_evidence_air_accumulation) * (1 - sleep_evidence_bedroom_presence)) %}
 {% set sleep_probability_raw = max(0, min(1, sleep_probability_raw)) %}
 
 {% set awake_probability_raw = 1 - ((1 - awake_evidence_hr) * (1 - awake_evidence_phone_interactive) * (1 - awake_evidence_presence_elsewhere) * (1 - awake_evidence_no_bedroom_presence) * (1 - awake_evidence_gaming_on) * (1 - awake_evidence_shower_on) * (1 - awake_evidence_recent_gaming) * (1 - awake_evidence_recent_shower) * (1 - awake_evidence_recent_phone)) %}
 {% set awake_probability_raw = max(0, min(1, awake_probability_raw)) %}
 
+{# --- Circadian bias --- #}
+{% set hour = now().hour %}
+{% if hour >= 22 or hour < 7 %}
+  {% set circadian_factor = 0.2 %}
+{% else %}
+  {% set circadian_factor = -0.2 %}
+{% endif %}
+{% set sleep_probability_raw = max(0, min(1, sleep_probability_raw + circadian_factor)) %}
+
+{# --- Final probability fusion --- #}
 {% set final_numerator = sleep_probability_raw * (1 - awake_probability_raw) %}
 {% set final_denominator = final_numerator + ((1 - sleep_probability_raw) * awake_probability_raw) %}
 {% set sleep_probability = (0 if final_denominator == 0 else final_numerator / final_denominator) %}
 {% set sleep_probability = max(0, min(1, sleep_probability)) %}
 
+{# --- Smoothing (moving average) --- #}
+{% set sleep_window = states('sensor.sleep_probability_window') | float(0) %}
+{% set smoothed_sleep_probability = ((sleep_window * 9) + sleep_probability) / 10 %}
+{% set smoothed_sleep_probability = max(0, min(1, smoothed_sleep_probability)) %}
+
+{# --- Classification with validation loop --- #}
 {% set classification_threshold = 0.75 %}
-{% set is_asleep = (sleep_probability >= classification_threshold) and (is_gaming_on == 0) and (is_shower_on == 0) %}
+{% if smoothed_sleep_probability >= 0.6 and awake_probability_raw >= 0.6 %}
+  {% set state = 'limbo' %}
+{% elif smoothed_sleep_probability >= classification_threshold and is_gaming_on == 0 and is_shower_on == 0 %}
+  {% set state = 'asleep' %}
+{% else %}
+  {% set state = 'awake' %}
+{% endif %}
 
-Summary — Sleep {{ (sleep_probability*100) | round(0) }}% (Threshold {{ (classification_threshold*100) | round(0) }}%) • Asleep: {{ is_asleep }}
+{# --- DEBUG OUTPUT (after all calculations) --- #}
+Core:
+- **Bedtime mode:** {{ is_bedtime_mode }}
+- **Watch on wrist:** {{ is_watch_on_wrist }}
+- **Phone doze:** {{ is_phone_in_doze }}
+- **Comfort ok:** {{ is_comfort_ok }}
 
-Status — Bedtime {{ is_bedtime_mode }} • Watch on wrist {{ is_watch_on_wrist }} • Phone doze {{ is_phone_in_doze }} • Comfort OK {{ is_comfort_ok }}
-Presence — Bedroom {{ presence_bedroom }} • Elsewhere {{ presence_elsewhere }} [Livingroom {{ presence_livingroom }} • Kitchen {{ presence_kitchen }} • Bathroom {{ presence_bathroom }} • Entryway {{ presence_entryway }}]
+Presence:
+- **Livingroom:** {{ presence_livingroom }}
+- **Kitchen:** {{ presence_kitchen }}
+- **Bathroom:** {{ presence_bathroom }}
+- **Entryway:** {{ presence_entryway }}
+- **Bedroom:** {{ presence_bedroom }}
+- **Elsewhere:** {{ presence_elsewhere }}
 
-Heart Rate — Now {{ heart_rate_current_bpm | round(0) }} bpm • Rest {{ heart_rate_resting_bpm | round(0) }} bpm • Δ {{ heart_rate_delta_bpm | round(1) }} bpm • HR sleep {{ (heart_rate_sleep_factor*100) | round(0) }}% • HR awake {{ (heart_rate_awake_factor*100) | round(0) }}%
+Heart rate:
+- **Current bpm:** {{ heart_rate_current_bpm }}
+- **Resting bpm:** {{ heart_rate_resting_bpm }}
+- **Delta bpm:** {{ heart_rate_delta_bpm }}
+- **Sleep factor:** {{ '%.3f'|format(heart_rate_sleep_factor) }}
+- **Awake factor:** {{ '%.3f'|format(heart_rate_awake_factor) }}
 
-Environment — Light bed {{ bedroom_illuminance_lux | round(1) }} lx (dark {{ (darkness_factor*100) | round(0) }}%) • Light liv {{ livingroom_illuminance_lux | round(1) }} lx (diff OK {{ (light_difference_ok_factor*100) | round(0) }}%) • Noise {{ bedroom_noise_db | round(1) }} dBA (Δ {{ bedroom_noise_delta_db | round(2) }}, quiet {{ (quietness_factor*100) | round(0) }}%) • Temp {{ bedroom_temp_c | round(1) }}°C (Δ {{ bedroom_temp_delta_c | round(2) }}, stable {{ (temperature_stability_factor*100) | round(0) }}%) • Humidity {{ bedroom_humidity_pct | round(0) }}% (OK {{ (humidity_ok_factor*100) | round(0) }}%) • Air CO₂ {{ co2_rise_tracker | round(2) }} • VOC {{ voc_rise_tracker | round(2) }}
+Activity:
+- **Gaming on:** {{ is_gaming_on }}
+- **Shower on:** {{ is_shower_on }}
+- **Phone interactive:** {{ is_phone_interactive }}
 
-Activity — Phone motion {{ phone_motion_level }} (still {{ (phone_still_factor*100) | round(0) }}%) • Phone interactive {{ is_phone_interactive }} • Gaming {{ is_gaming_on }} • Shower {{ is_shower_on }} • Freshness — Gaming {{ (gaming_freshness_factor*100) | round(0) }}% • Shower {{ (shower_freshness_factor*100) | round(0) }}% • Phone {{ (phone_freshness_factor*100) | round(0) }}%
+Motion:
+- **Phone motion level:** {{ phone_motion_level }}
+- **Phone still factor:** {{ '%.3f'|format(phone_still_factor) }}
 
-Evidence — Sleep p {{ (sleep_probability_raw*100) | round(0) }}% • Awake p {{ (awake_probability_raw*100) | round(0) }}%
+Environment:
+- **Bedroom lux:** {{ bedroom_illuminance_lux }}
+- **Livingroom lux:** {{ livingroom_illuminance_lux }}
+- **Darkness factor:** {{ '%.3f'|format(darkness_factor) }}
+- **Light diff lux:** {{ light_difference_lux }}
+- **Light diff ok factor:** {{ '%.3f'|format(light_difference_ok_factor) }}
+- **Noise db:** {{ bedroom_noise_db }}
+- **Noise baseline db:** {{ bedroom_noise_baseline_db }}
+- **Noise delta db:** {{ bedroom_noise_delta_db }}
+- **Quietness factor:** {{ '%.3f'|format(quietness_factor) }}
+- **Temp c:** {{ bedroom_temp_c }}
+- **Temp baseline c:** {{ bedroom_temp_baseline_c }}
+- **Temp delta c:** {{ bedroom_temp_delta_c }}
+- **Temp stability factor:** {{ '%.3f'|format(temperature_stability_factor) }}
+- **Humidity %:** {{ bedroom_humidity_pct }}
+- **Humidity ok factor:** {{ '%.3f'|format(humidity_ok_factor) }}
+- **CO2 rise tracker:** {{ co2_rise_tracker }}
+- **VOC rise tracker:** {{ voc_rise_tracker }}
+- **CO2 rising flag:** {{ co2_rising_flag }}
+- **VOC rising flag:** {{ voc_rising_flag }}
 
-Final — Sleep {{ (sleep_probability*100) | round(0) }}% • Threshold {{ (classification_threshold*100) | round(0) }}% • Asleep: {{ is_asleep }}
+Cooldowns:
+- **Gaming minutes since change:** {{ '%.1f'|format(gaming_minutes_since_change) }}
+- **Gaming remaining cooldown:** {{ '%.1f'|format(gaming_remaining_cooldown) }}
+- **Gaming freshness factor:** {{ '%.3f'|format(gaming_freshness_factor) }}
+- **Shower minutes since change:** {{ '%.1f'|format(shower_minutes_since_change) }}
+- **Shower remaining cooldown:** {{ '%.1f'|format(shower_remaining_cooldown) }}
+- **Shower freshness factor:** {{ '%.3f'|format(shower_freshness_factor) }}
+- **Phone minutes since change:** {{ '%.1f'|format(phone_minutes_since_change) }}
+- **Phone remaining cooldown:** {{ '%.1f'|format(phone_remaining_cooldown) }}
+- **Phone freshness factor:** {{ '%.3f'|format(phone_freshness_factor) }}
+
+Evidence:
+- **Sleep bedtime:** {{ '%.3f'|format(sleep_evidence_bedtime) }}
+- **Sleep phone doze:** {{ '%.3f'|format(sleep_evidence_phone_doze) }}
+- **Sleep comfort:** {{ '%.3f'|format(sleep_evidence_comfort) }}
+- **Sleep darkness:** {{ '%.3f'|format(sleep_evidence_darkness) }}
+- **Sleep light diff:** {{ '%.3f'|format(sleep_evidence_lightdiff) }}
+- **Sleep quietness:** {{ '%.3f'|format(sleep_evidence_quietness) }}
+- **Sleep temperature:** {{ '%.3f'|format(sleep_evidence_temperature) }}
+- **Sleep humidity:** {{ '%.3f'|format(sleep_evidence_humidity) }}
+- **Sleep HR:** {{ '%.3f'|format(sleep_evidence_hr) }}
+- **Sleep phone still:** {{ '%.3f'|format(sleep_evidence_phone_still) }}
+- **Sleep air accumulation:** {{ '%.3f'|format(sleep_evidence_air_accumulation) }}
+- **Sleep bedroom presence:** {{ '%.3f'|format(sleep_evidence_bedroom_presence) }}
+- **Awake HR:** {{ '%.3f'|format(awake_evidence_hr) }}
+- **Awake phone interactive:** {{ '%.3f'|format(awake_evidence_phone_interactive) }}
+- **Awake elsewhere:** {{ '%.3f'|format(awake_evidence_presence_elsewhere) }}
+- **Awake no bedroom:** {{ '%.3f'|format(awake_evidence_no_bedroom_presence) }}
+- **Awake gaming on:** {{ '%.3f'|format(awake_evidence_gaming_on) }}
+- **Awake shower on:** {{ '%.3f'|format(awake_evidence_shower_on) }}
+- **Awake recent gaming:** {{ '%.3f'|format(awake_evidence_recent_gaming) }}
+- **Awake recent shower:** {{ '%.3f'|format(awake_evidence_recent_shower) }}
+- **Awake recent phone:** {{ '%.3f'|format(awake_evidence_recent_phone) }}
+
+Fusion:
+- **Sleep raw:** {{ '%.3f'|format(sleep_probability_raw) }}
+- **Awake raw:** {{ '%.3f'|format(awake_probability_raw) }}
+- **Hour:** {{ hour }}
+- **Circadian factor:** {{ '%.2f'|format(circadian_factor) }}
+- **Final numerator:** {{ '%.3f'|format(final_numerator) }}
+- **Final denominator:** {{ '%.3f'|format(final_denominator) }}
+- **Sleep probability:** {{ '%.3f'|format(sleep_probability) }}
+- **Sleep window (prev):** {{ '%.3f'|format(sleep_window) }}
+- **Smoothed sleep probability:** {{ '%.3f'|format(smoothed_sleep_probability) }}
+- **State:** {{ state }}
+
+Final sleep probability = {{ (smoothed_sleep_probability*100) | round(0) }}%
 
 {% endif %}
