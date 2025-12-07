@@ -3,19 +3,19 @@ Not home → sleep_probability = 0%
 {% else %}
 
 {# --- Core state flags --- #}
-{% set is_bedtime_mode = is_state('binary_sensor.google_pixel_watch_2_bedtime_mode', 'on') | int %}
-{% set is_watch_on_wrist = is_state('binary_sensor.google_pixel_watch_2_on_body_sensor', 'on') | int %}
-{% set is_phone_in_doze = is_state('binary_sensor.pixel_8_pro_doze_mode', 'on') | int %}
-{% set is_comfort_ok = is_state('binary_sensor.comfort_levels', 'on') | int %}
+{% set is_bedtime_mode = is_state('binary_sensor.google_pixel_watch_2_bedtime_mode','on') | int %}
+{% set is_watch_on_wrist = is_state('binary_sensor.google_pixel_watch_2_on_body_sensor','on') | int %}
+{% set is_phone_in_doze = is_state('binary_sensor.pixel_8_pro_doze_mode','on') | int %}
+{% set is_comfort_ok = is_state('binary_sensor.comfort_levels','on') | int %}
 
-{% set presence_livingroom = is_state('binary_sensor.presence_sensor', 'on') | int %}
-{% set presence_kitchen = is_state('binary_sensor.kitchen_presence_sensor', 'on') | int %}
-{% set presence_bathroom = is_state('binary_sensor.aqura_bathroom_occupancy_sensor', 'on') | int %}
-{% set presence_entryway = is_state('binary_sensor.entryway_detection', 'on') | int %}
-{% set presence_bedroom = is_state('binary_sensor.aqara_presence_multisensor_fp300_occupancy', 'on') | int %}
+{% set presence_livingroom = is_state('binary_sensor.presence_sensor','on') | int %}
+{% set presence_kitchen = is_state('binary_sensor.kitchen_presence_sensor','on') | int %}
+{% set presence_bathroom = is_state('binary_sensor.aqura_bathroom_occupancy_sensor','on') | int %}
+{% set presence_entryway = is_state('binary_sensor.entryway_detection','on') | int %}
+{% set presence_bedroom = is_state('binary_sensor.aqara_presence_multisensor_fp300_occupancy','on') | int %}
 {% set presence_elsewhere = (presence_livingroom == 1) or (presence_kitchen == 1) or (presence_bathroom == 1) or (presence_entryway == 1) %}
 
-{# --- Heart rate with logistic curve (no exp()) --- #}
+{# --- Heart rate logistic (no exp()) --- #}
 {% set heart_rate_current_bpm = states('sensor.my_current_heart_rate') | float(0) %}
 {% set heart_rate_resting_bpm = states('sensor.peter_s_resting_heart_rate') | float(0) %}
 {% set heart_rate_delta_bpm = (heart_rate_current_bpm - heart_rate_resting_bpm) | float(0) %}
@@ -26,12 +26,12 @@ Not home → sleep_probability = 0%
 {% set heart_rate_awake_factor = 1 - heart_rate_sleep_factor %}
 
 {# --- Activity sensors --- #}
-{% set is_gaming_on = is_state('binary_sensor.gaming_sensor', 'on') | int %}
-{% set is_shower_on = is_state('binary_sensor.shower', 'on') | int %}
-{% set is_phone_interactive = is_state('binary_sensor.pixel_8_pro_interactive', 'on') | int %}
+{% set is_gaming_on = is_state('binary_sensor.gaming_sensor','on') | int %}
+{% set is_shower_on = is_state('binary_sensor.shower','on') | int %}
+{% set is_phone_interactive = is_state('binary_sensor.pixel_8_pro_interactive','on') | int %}
 
 {# --- Motion factor --- #}
-{% set phone_motion_level = state_attr('sensor.pixel_8_pro_sleep_confidence', 'motion') | int(10) %}
+{% set phone_motion_level = state_attr('sensor.pixel_8_pro_sleep_confidence','motion') | int(10) %}
 {% set phone_still_factor = max(0, min(1, (3 - phone_motion_level) / 3)) %}
 
 {# --- Environment factors --- #}
@@ -58,7 +58,7 @@ Not home → sleep_probability = 0%
 
 {# --- Cooldowns --- #}
 {% set gaming_cooldown_min = 30 %}
-{% set gaming_on_state = is_state('binary_sensor.gaming_sensor', 'on') %}
+{% set gaming_on_state = is_state('binary_sensor.gaming_sensor','on') %}
 {% set gaming_last_change_ts = as_timestamp(states.binary_sensor.gaming_sensor.last_changed) %}
 {% set gaming_minutes_since_change = ((as_timestamp(now()) - gaming_last_change_ts) / 60) | float %}
 {% set gaming_minutes_since_off = 0 if gaming_on_state else gaming_minutes_since_change %}
@@ -66,7 +66,7 @@ Not home → sleep_probability = 0%
 {% set gaming_freshness_factor = gaming_remaining_cooldown / gaming_cooldown_min %}
 
 {% set shower_cooldown_min = 20 %}
-{% set shower_on_state = is_state('binary_sensor.shower', 'on') %}
+{% set shower_on_state = is_state('binary_sensor.shower','on') %}
 {% set shower_last_change_ts = as_timestamp(states.binary_sensor.shower.last_changed) %}
 {% set shower_minutes_since_change = ((as_timestamp(now()) - shower_last_change_ts) / 60) | float %}
 {% set shower_minutes_since_off = 0 if shower_on_state else shower_minutes_since_change %}
@@ -74,7 +74,7 @@ Not home → sleep_probability = 0%
 {% set shower_freshness_factor = shower_remaining_cooldown / shower_cooldown_min %}
 
 {% set phone_cooldown_min = 15 %}
-{% set phone_on_state = is_state('binary_sensor.pixel_8_pro_interactive', 'on') %}
+{% set phone_on_state = is_state('binary_sensor.pixel_8_pro_interactive','on') %}
 {% set phone_last_change_ts = as_timestamp(states.binary_sensor.pixel_8_pro_interactive.last_changed) %}
 {% set phone_minutes_since_change = ((as_timestamp(now()) - phone_last_change_ts) / 60) | float %}
 {% set phone_minutes_since_off = 0 if phone_on_state else phone_minutes_since_change %}
@@ -128,22 +128,17 @@ Not home → sleep_probability = 0%
 {% set sleep_probability = (0 if final_denominator == 0 else final_numerator / final_denominator) %}
 {% set sleep_probability = max(0, min(1, sleep_probability)) %}
 
-{# --- Smoothing (moving average) --- #}
-{% set sleep_window = states('sensor.sleep_probability_window') | float(0) %}
-{% set smoothed_sleep_probability = ((sleep_window * 9) + sleep_probability) / 10 %}
-{% set smoothed_sleep_probability = max(0, min(1, smoothed_sleep_probability)) %}
-
-{# --- Classification with validation loop --- #}
-{% set classification_threshold = 0.75 %}
-{% if smoothed_sleep_probability >= 0.6 and awake_probability_raw >= 0.6 %}
-  {% set state = 'limbo' %}
-{% elif smoothed_sleep_probability >= classification_threshold and is_gaming_on == 0 and is_shower_on == 0 %}
+{# --- Classification (no smoothing, no extra sensors) --- #}
+{% set classification_threshold = 0.90 %}
+{% if sleep_probability >= classification_threshold and is_gaming_on == 0 and is_shower_on == 0 %}
   {% set state = 'asleep' %}
-{% else %}
+{% elif (sleep_probability < 0.80) or (awake_probability_raw >= 0.90) %}
   {% set state = 'awake' %}
+{% else %}
+  {% set state = 'limbo' %}
 {% endif %}
 
-{# --- DEBUG OUTPUT (after all calculations) --- #}
+{# --- DEBUG OUTPUT --- #}
 Core:
 - **Bedtime mode:** {{ is_bedtime_mode }}
 - **Watch on wrist:** {{ is_watch_on_wrist }}
@@ -230,17 +225,15 @@ Evidence:
 - **Awake recent phone:** {{ '%.3f'|format(awake_evidence_recent_phone) }}
 
 Fusion:
-- **Sleep raw:** {{ '%.3f'|format(sleep_probability_raw) }}
+- **Sleep raw (biased):** {{ '%.3f'|format(sleep_probability_raw) }}
 - **Awake raw:** {{ '%.3f'|format(awake_probability_raw) }}
 - **Hour:** {{ hour }}
 - **Circadian factor:** {{ '%.2f'|format(circadian_factor) }}
 - **Final numerator:** {{ '%.3f'|format(final_numerator) }}
 - **Final denominator:** {{ '%.3f'|format(final_denominator) }}
 - **Sleep probability:** {{ '%.3f'|format(sleep_probability) }}
-- **Sleep window (prev):** {{ '%.3f'|format(sleep_window) }}
-- **Smoothed sleep probability:** {{ '%.3f'|format(smoothed_sleep_probability) }}
 - **State:** {{ state }}
 
-Final sleep probability = {{ (smoothed_sleep_probability*100) | round(0) }}%
+Final sleep probability = {{ (sleep_probability*100) | round(0) }}%
 
 {% endif %}
