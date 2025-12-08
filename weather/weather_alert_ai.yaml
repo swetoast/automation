@@ -1,0 +1,22 @@
+action: ai_task.generate_data
+data:
+  instructions: |
+    Current weather alert:
+      State: {{ states('sensor.smhi_alert_vastra_gotalands_lan') }}
+      Messages: {{ state_attr('sensor.smhi_alert_vastra_gotalands_lan','messages') }}
+
+    Rules:
+      Generate a compact natural‑language sentence suitable for an Android phone notification that summarizes the weather alert.
+      Always include severity, event type, area, and start/end times (24‑hour format).
+      Mention risks only if present (fallen trees, blocked roads, transport delays).
+      Mention safety advice only if provided (secure loose objects, risk to forest).
+      Report disturbances (electricity, telecom) only if explicitly noted.
+      Use the 24‑hour clock format for times.
+      Do not use emojis, decorative symbols, special punctuation, or semicolons.
+      Vary phrasing when constructing and describe the alert naturally in the message.
+      Ignore attributes that are empty or have no value.
+      If upcoming, mention when it begins.
+      If ongoing, describe current conditions and risks.
+      If expired, summarize what was expected and note that the warning has ended.
+      Use natural language to describe the alert instead of listing raw stats
+  task_name: Weather Alert
