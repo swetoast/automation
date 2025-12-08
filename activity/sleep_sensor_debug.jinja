@@ -31,6 +31,8 @@ Not home → sleep_probability = 0%
 {% set is_phone_interactive = is_state('binary_sensor.pixel_8_pro_interactive','on') | int %}
 {% set is_tv_active = (1 if (is_state('media_player.bedroom_tv','playing') or is_state('media_player.bedroom_tv','paused')) else 0) %}
 {% set is_quest_active = is_state('binary_sensor.quest_2_in_use','on') | int %}
+{% set is_hideaway_on = is_state('binary_sensor.hideaway','on') | int %}
+{% set is_work_computer_on = is_state('binary_sensor.work_computer','on') | int %}
 
 {# --- Motion factor --- #}
 {% set phone_motion_level = state_attr('sensor.pixel_8_pro_sleep_confidence','motion') | int(10) %}
@@ -58,7 +60,7 @@ Not home → sleep_probability = 0%
 {% set co2_rising_flag = (1 if co2_rise_tracker > 0.5 else 0) %}
 {% set voc_rising_flag = (1 if voc_rise_tracker > 0.5 else 0) %}
 
-{# --- Cooldowns (gaming/shower/phone/tv/quest) --- #}
+{# --- Cooldowns (gaming/shower/phone/tv/quest/hideaway/work_computer) --- #}
 {% set gaming_cooldown_min = 30 %}
 {% set gaming_last_change_ts = as_timestamp(states.binary_sensor.gaming_sensor.last_changed) %}
 {% set gaming_minutes_since_change = ((as_timestamp(now()) - gaming_last_change_ts) / 60) | float %}
@@ -94,6 +96,20 @@ Not home → sleep_probability = 0%
 {% set quest_remaining_cooldown = quest_cooldown_min if is_quest_active == 1 else max(0, quest_cooldown_min - quest_minutes_since_off) %}
 {% set quest_freshness_factor = quest_remaining_cooldown / quest_cooldown_min %}
 
+{% set hideaway_cooldown_min = 30 %}
+{% set hideaway_last_change_ts = as_timestamp(states.binary_sensor.hideaway.last_changed) %}
+{% set hideaway_minutes_since_change = ((as_timestamp(now()) - hideaway_last_change_ts) / 60) | float %}
+{% set hideaway_minutes_since_off = 0 if is_hideaway_on == 1 else hideaway_minutes_since_change %}
+{% set hideaway_remaining_cooldown = hideaway_cooldown_min if is_hideaway_on == 1 else max(0, hideaway_cooldown_min - hideaway_minutes_since_off) %}
+{% set hideaway_freshness_factor = hideaway_remaining_cooldown / hideaway_cooldown_min %}
+
+{% set work_computer_cooldown_min = 30 %}
+{% set work_computer_last_change_ts = as_timestamp(states.binary_sensor.work_computer.last_changed) %}
+{% set work_computer_minutes_since_change = ((as_timestamp(now()) - work_computer_last_change_ts) / 60) | float %}
+{% set work_computer_minutes_since_off = 0 if is_work_computer_on == 1 else work_computer_minutes_since_change %}
+{% set work_computer_remaining_cooldown = work_computer_cooldown_min if is_work_computer_on == 1 else max(0, work_computer_cooldown_min - work_computer_minutes_since_off) %}
+{% set work_computer_freshness_factor = work_computer_remaining_cooldown / work_computer_cooldown_min %}
+
 {# --- Sleep evidence --- #}
 {% set sleep_evidence_bedtime = 0.7 if is_bedtime_mode == 1 else 0.0 %}
 {% set sleep_evidence_phone_doze = 0.6 if is_phone_in_doze == 1 else 0.0 %}
@@ -108,7 +124,7 @@ Not home → sleep_probability = 0%
 {% set sleep_evidence_air_accumulation = max(0, min(1, (co2_rising_flag * 0.2) + (voc_rising_flag * 0.1))) %}
 {% set sleep_evidence_bedroom_presence = 0.6 if (presence_bedroom == 1 and not presence_elsewhere) else 0.0 %}
 
-{# --- Awake evidence (incl. TV/Quest + cooldowns) --- #}
+{# --- Awake evidence (incl. TV/Quest + cooldowns + Hideaway + Work Computer) --- #}
 {% set awake_evidence_hr = heart_rate_awake_factor * 0.8 %}
 {% set awake_evidence_phone_interactive = 0.9 if is_phone_interactive == 1 else 0.0 %}
 {% set awake_evidence_presence_elsewhere = 0.8 if presence_elsewhere else 0.0 %}
@@ -123,19 +139,62 @@ Not home → sleep_probability = 0%
 {% set awake_evidence_recent_tv = (0.7 * tv_freshness_factor) if is_tv_active == 0 else 0.0 %}
 {% set awake_evidence_recent_quest = (0.9 * quest_freshness_factor) if is_quest_active == 0 else 0.0 %}
 
+{# Hideaway-specific awake evidence #}
+{% set awake_evidence_hideaway_on = 0.92 if is_hideaway_on == 1 else 0.0 %}
+{% set awake_evidence_recent_hideaway = (0.75 * hideaway_freshness_factor) if is_hideaway_on == 0 else 0.0 %}
+
+{# Work-computer-specific awake evidence #}
+{% set awake_evidence_work_computer_on = 0.92 if is_work_computer_on == 1 else 0.0 %}
+{% set awake_evidence_recent_work_computer = (0.75 * work_computer_freshness_factor) if is_work_computer_on == 0 else 0.0 %}
+
 {# --- Raw probabilities --- #}
-{% set sleep_probability_raw = 1 - ((1 - sleep_evidence_bedtime) * (1 - sleep_evidence_phone_doze) * (1 - sleep_evidence_comfort) * (1 - sleep_evidence_darkness) * (1 - sleep_evidence_lightdiff) * (1 - sleep_evidence_quietness) * (1 - sleep_evidence_temperature) * (1 - sleep_evidence_humidity) * (1 - sleep_evidence_hr) * (1 - sleep_evidence_phone_still) * (1 - sleep_evidence_air_accumulation) * (1 - sleep_evidence_bedroom_presence)) %}
+{% set sleep_probability_raw = 1 - (
+  (1 - sleep_evidence_bedtime)
+  * (1 - sleep_evidence_phone_doze)
+  * (1 - sleep_evidence_comfort)
+  * (1 - sleep_evidence_darkness)
+  * (1 - sleep_evidence_lightdiff)
+  * (1 - sleep_evidence_quietness)
+  * (1 - sleep_evidence_temperature)
+  * (1 - sleep_evidence_humidity)
+  * (1 - sleep_evidence_hr)
+  * (1 - sleep_evidence_phone_still)
+  * (1 - sleep_evidence_air_accumulation)
+  * (1 - sleep_evidence_bedroom_presence)
+) %}
 {% set sleep_probability_raw = max(0, min(1, sleep_probability_raw)) %}
 
-{% set awake_probability_raw = 1 - ((1 - awake_evidence_hr) * (1 - awake_evidence_phone_interactive) * (1 - awake_evidence_presence_elsewhere) * (1 - awake_evidence_no_bedroom_presence) * (1 - awake_evidence_gaming_on) * (1 - awake_evidence_shower_on) * (1 - awake_evidence_tv_on) * (1 - awake_evidence_quest_on) * (1 - awake_evidence_recent_gaming) * (1 - awake_evidence_recent_shower) * (1 - awake_evidence_recent_phone) * (1 - awake_evidence_recent_tv) * (1 - awake_evidence_recent_quest)) %}
+{% set awake_probability_raw = 1 - (
+  (1 - awake_evidence_hr)
+  * (1 - awake_evidence_phone_interactive)
+  * (1 - awake_evidence_presence_elsewhere)
+  * (1 - awake_evidence_no_bedroom_presence)
+  * (1 - awake_evidence_gaming_on)
+  * (1 - awake_evidence_shower_on)
+  * (1 - awake_evidence_tv_on)
+  * (1 - awake_evidence_quest_on)
+  * (1 - awake_evidence_recent_gaming)
+  * (1 - awake_evidence_recent_shower)
+  * (1 - awake_evidence_recent_phone)
+  * (1 - awake_evidence_recent_tv)
+  * (1 - awake_evidence_recent_quest)
+  * (1 - awake_evidence_hideaway_on)
+  * (1 - awake_evidence_recent_hideaway)
+  * (1 - awake_evidence_work_computer_on)
+  * (1 - awake_evidence_recent_work_computer)
+) %}
 {% set awake_probability_raw = max(0, min(1, awake_probability_raw)) %}
 
-{# --- Circadian bias --- #}
+{# --- Circadian bias (dampen when computer active OR gaming) --- #}
 {% set hour = now().hour %}
 {% if hour >= 22 or hour < 7 %}
   {% set circadian_factor = 0.2 %}
 {% else %}
   {% set circadian_factor = -0.2 %}
+{% endif %}
+{# Dampening when actively at any computer OR gaming #}
+{% if is_hideaway_on == 1 or is_work_computer_on == 1 or is_gaming_on == 1 %}
+  {% set circadian_factor = circadian_factor * 0.5 %}
 {% endif %}
 {% set sleep_probability_raw = max(0, min(1, sleep_probability_raw + circadian_factor)) %}
 
@@ -147,7 +206,7 @@ Not home → sleep_probability = 0%
 
 {# --- Classification (hard-awake when currently active) --- #}
 {% set classification_threshold = 0.90 %}
-{% if is_tv_active == 1 or is_quest_active == 1 or is_gaming_on == 1 or is_shower_on == 1 %}
+{% if is_tv_active == 1 or is_quest_active == 1 or is_gaming_on == 1 or is_shower_on == 1 or is_hideaway_on == 1 or is_work_computer_on == 1 %}
   {% set state = 'awake' %}
 {% elif sleep_probability >= classification_threshold and is_gaming_on == 0 and is_shower_on == 0 %}
   {% set state = 'asleep' %}
@@ -185,6 +244,8 @@ Activity:
 - **Phone interactive:** {{ is_phone_interactive }}
 - **TV on:** {{ is_tv_active }}
 - **Quest on:** {{ is_quest_active }}
+- **Hideaway (computer):** {{ is_hideaway_on }}
+- **Work computer:** {{ is_work_computer_on }}
 
 Motion:
 - **Phone motion level:** {{ phone_motion_level }}
@@ -225,6 +286,12 @@ Cooldowns:
 - **Quest minutes since change:** {{ '%.1f'|format(quest_minutes_since_change) }}
 - **Quest remaining cooldown:** {{ '%.1f'|format(quest_remaining_cooldown) }}
 - **Quest freshness factor:** {{ '%.3f'|format(quest_freshness_factor) }}
+- **Hideaway minutes since change:** {{ '%.1f'|format(hideaway_minutes_since_change) }}
+- **Hideaway remaining cooldown:** {{ '%.1f'|format(hideaway_remaining_cooldown) }}
+- **Hideaway freshness factor:** {{ '%.3f'|format(hideaway_freshness_factor) }}
+- **Work computer minutes since change:** {{ '%.1f'|format(work_computer_minutes_since_change) }}
+- **Work computer remaining cooldown:** {{ '%.1f'|format(work_computer_remaining_cooldown) }}
+- **Work computer freshness factor:** {{ '%.3f'|format(work_computer_freshness_factor) }}
 
 Evidence:
 - **Sleep bedtime:** {{ '%.3f'|format(sleep_evidence_bedtime) }}
@@ -252,6 +319,10 @@ Evidence:
 - **Awake recent phone:** {{ '%.3f'|format(awake_evidence_recent_phone) }}
 - **Awake recent TV:** {{ '%.3f'|format(awake_evidence_recent_tv) }}
 - **Awake recent Quest:** {{ '%.3f'|format(awake_evidence_recent_quest) }}
+- **Awake Hideaway on:** {{ '%.3f'|format(awake_evidence_hideaway_on) }}
+- **Awake recent Hideaway:** {{ '%.3f'|format(awake_evidence_recent_hideaway) }}
+- **Awake Work computer on:** {{ '%.3f'|format(awake_evidence_work_computer_on) }}
+- **Awake recent Work computer:** {{ '%.3f'|format(awake_evidence_recent_work_computer) }}
 
 Fusion:
 - **Sleep raw (biased):** {{ '%.3f'|format(sleep_probability_raw) }}
