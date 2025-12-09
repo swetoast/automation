@@ -2,9 +2,11 @@ sequence:
   - action: ai_task.generate_data
     data:
       task_name: weather comfort report
-      instructions: >
+      instructions: |-
         Current weather summary:
           Condition: {{ states('sensor.weather_summary') }}
+          pm2: {{ states('sensor.sensor_47571_pm2_5') }} μg/m³
+          pm2: {{ states('sensor.sensor_47571_pm10') }} μg/m³
           Average Temp: {{ state_attr('sensor.weather_summary','average_outside_temperature') }} °C
           Average Humidity: {{ state_attr('sensor.weather_summary','average_outside_humidity') }} %
           Feels Like: {{ state_attr('sensor.weather_summary','feels_like') }} °C
@@ -15,6 +17,7 @@ sequence:
           Thoms Discomfort: {{ state_attr('sensor.weather_summary','thoms_discomfort') }}
           Moist Air Enthalpy: {{ state_attr('sensor.weather_summary','moist_air_enthalpy') }} kJ/kg
           Time of Day: {{ state_attr('sensor.weather_summary','time_of_day') }}
+          Season: {{ states('sensor.season') }}
           Holiday: {{ state_attr('sensor.weather_summary','holiday') }}
           Comfort Level: {{ state_attr('sensor.weather_summary','weathersense_comfort_level') }}
           Comfort Description: {{ state_attr('sensor.weather_summary','weathersense_comfort_description') }}
@@ -27,6 +30,10 @@ sequence:
           Timestamp: {{ state_attr('sensor.weather_summary','weathersense_time') }}
           Comfortable: {{ state_attr('sensor.weather_summary','weathersense_is_comfortable') }}
           Forecast Next 12h: {{ state_attr('sensor.weather_summary','forecast_next_12h') }}
+
+        Current weather alert:
+          State: {{ states('sensor.smhi_alert_vastra_gotalands_lan') }}
+          Messages: {{ state_attr('sensor.smhi_alert_vastra_gotalands_lan','messages') }}
 
         Spring weather summary:
           Rain Alert: {{ state_attr('sensor.spring_weather_summary','rain_alert') }}
@@ -78,17 +85,31 @@ sequence:
           Frost Perception: {{ state_attr('sensor.winter_weather_summary','frost_perception') }}
 
         Rules:
-          Generate a compact natural‑language sentence suitable for an Android
-          phone notification that summarizes today’s weather. Always include both
-          the numeric temperature and the feels‑like temperature. Use the 24‑hour
-          clock format, not AM or PM. Do not use terms like scharlau; use weather
-          instead. Avoid emojis, decorative symbols, special punctuation, and
-          semicolons. Vary phrasing across runs so the message is not identical
-          each time. Include seasonal information only if the current season
-          matches, and ignore seasonal sensors entirely if not in season. Do not
-          include any attributes that are empty or have no value. If the forecast
-          indicates a change in weather later today, mention it naturally in the
-          sentence.
+           Generate a compact natural‑language sentence suitable for an Android phone notification that summarizes today’s weather.
+           Always include both the numeric temperature and the feels‑like temperature, you can use °C instead of typing degree celsius.
+           Use the 24‑hour clock format, not AM or PM.
+           Do not use terms like scharlau; use weather instead but use scharlau data if available from season sensor.
+           Do not use emojis, decorative symbols, special punctuation, and semicolons.
+           Vary phrasing when constructing and describe the weather in the message.
+           Include air quality information from PM2.5 and PM1 sensors as a single qualitative descriptor (for example Good, Moderate, Unhealthy) rather than numeric values, and omit the air quality field if sensor data is missing.
+           Include seasonal information only if the current season matches, and ignore seasonal sensors entirely if not in season.
+           Do not include any attributes that are empty or have no value.
+           If the forecast indicates a change in weather later today, mention it naturally in the sentence.
+           Generate a compact natural‑language sentence suitable for an Android phone notification that summarizes the weather alert.
+           Always include severity, event type, area, and start/end times (24‑hour format) using local times from the message.
+           Mention risks only if present (fallen trees, blocked roads, transport delays).
+           Mention safety advice only if provided (secure loose objects, risk to forest).
+           Report disturbances (electricity, telecom) only if explicitly noted.
+           Dont use terms like No weather alerts; if there are no weather alerts, omit that line.
+           Use the 24‑hour clock format for times.
+           Mention Thunder risk if in included in the forecast and thunder is above 30%.
+           Do not use emojis, decorative symbols, special punctuation, or semicolons.
+           Vary phrasing and describe the alert naturally.
+           Ignore attributes that are empty or have no value.
+           If upcoming, mention when it begins.
+           If ongoing, describe current conditions and risks.
+           If expired, summarize what was expected and note that the warning has ended.
+           Make sure the sentence is structured correctly, using natural language, capitalization, and punctuation.
       structure:
         weather_description:
           description: >-
@@ -101,18 +122,5 @@ sequence:
   - action: notify.mobile_app_pixel_8_pro
     data:
       message: "{{ comfort_report.data.weather_description }} "
-      data:
-        tag: alarm
-        alert_once: true
-        importance: default
-        timeout: 900
-        visibility: public
-        notification_icon: mdi:weather-partly-cloudy
-        sticky: false
-        ttl: 0
-        actions:
-          - action: URI
-            title: Open Outside
-            uri: /dashboard-mushroom/Outside
-alias: Weather and comfort report (Duplicate)
+alias: Weather and comfort report
 description: ""
