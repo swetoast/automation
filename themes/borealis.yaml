@@ -1,3 +1,4 @@
+
 borealis:
   font-family: '"Inter", "Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif'
   primary-font-family: var(--font-family)
@@ -17,6 +18,7 @@ borealis:
   md-sys-elevation-level1: rgba(0,0,0,0.18) 0 1px 2px 0
   md-sys-elevation-level2: rgba(0,0,0,0.20) 0 2px 6px 0
   md-sys-elevation-level3: rgba(0,0,0,0.24) 0 4px 10px 0
+  md-sys-elevation-level4: rgba(0,0,0,0.28) 0 6px 16px 0
 
   modes:
     dark:
@@ -45,10 +47,22 @@ borealis:
       md-sys-color-outline-variant: '#1f2b44'
       md-sys-color-error: '#ff8680'
       md-sys-color-on-error: '#2b0a0a'
+      md-sys-color-error-container: '#5a1b1b'
+      md-sys-color-on-error-container: '#ffd9d4'
       md-sys-color-shadow: '#000000'
+      md-sys-color-inverse-surface: '#ecf2fb'
+      md-sys-color-inverse-on-surface: '#0c1220'
+      md-sys-color-inverse-primary: '#0b79b5'
+      md-sys-color-surface-tint: '#22d3ee'
+      rgb-primary-color: '34,211,238'
+      rgb-secondary-color: '165,180,197'
+      rgb-tertiary-color: '139,92,246'
+      rgb-on-surface-color: '230,238,251'
+      rgb-outline-color: '42,57,85'
       disabled-text-color: 'rgba(230,238,251,0.38)'
       disabled-color: 'rgba(255,255,255,0.08)'
       state-inactive-color: '#3a4863'
+
     light:
       md-sys-color-primary: '#0ea5e9'
       md-sys-color-on-primary: '#ffffff'
@@ -75,7 +89,18 @@ borealis:
       md-sys-color-outline-variant: '#b8c4d6'
       md-sys-color-error: '#d32f2f'
       md-sys-color-on-error: '#ffffff'
+      md-sys-color-error-container: '#fde7e7'
+      md-sys-color-on-error-container: '#410e0e'
       md-sys-color-shadow: '#000000'
+      md-sys-color-inverse-surface: '#2a3344'
+      md-sys-color-inverse-on-surface: '#e6eefb'
+      md-sys-color-inverse-primary: '#2aa8e8'
+      md-sys-color-surface-tint: '#0ea5e9'
+      rgb-primary-color: '14,165,233'
+      rgb-secondary-color: '73,90,114'
+      rgb-tertiary-color: '109,40,217'
+      rgb-on-surface-color: '12,18,32'
+      rgb-outline-color: '203,213,225'
       disabled-text-color: 'rgba(12,18,32,0.38)'
       disabled-color: 'rgba(0,0,0,0.08)'
       state-inactive-color: '#98a7b9'
@@ -165,6 +190,11 @@ borealis:
 
   table-row-background-color: var(--md-sys-color-surface)
   table-row-alternative-background-color: var(--md-sys-color-surface-container)
+  ha-data-table-header-background: var(--md-sys-color-surface-container-high)
+  ha-data-table-row-background: var(--table-row-background-color)
+  ha-data-table-row-striped-background: var(--table-row-alternative-background-color)
+  ha-data-table-row-hover-background: rgb(var(--rgb-on-surface-color) / 0.06)
+  ha-data-table-divider-color: var(--md-sys-color-outline-variant)
 
   paper-dialog-background-color: var(--md-sys-color-surface-container-high)
   ha-dialog-surface-background: var(--md-sys-color-surface-container-high)
@@ -232,11 +262,10 @@ borealis:
   motion-duration-slow: 300ms
   motion-ease-standard: cubic-bezier(0.4,0,0.2,1)
   reduced-motion: 0
-
   state-hover-opacity: 0.08
   state-pressed-opacity: 0.12
   state-selected-opacity: 0.16
-  focus-ring-color: rgba(from var(--md-sys-color-primary) r g b / 0.45)
+  focus-ring-color: rgb(var(--rgb-primary-color) / 0.45)
   focus-ring-outline: 3px auto var(--focus-ring-color)
 
   card-mod-theme: borealis
@@ -248,6 +277,7 @@ borealis:
       --md-e-2: var(--md-sys-elevation-level2);
       --md-e-3: var(--md-sys-elevation-level3);
     }
+
   card-mod-card-yaml: |
     ha-card {
       padding: var(--card-padding);
@@ -264,6 +294,7 @@ borealis:
       letter-spacing: .2px;
       font-weight: 600;
     }
+
   card-mod-more-info-yaml: |
     $: |
       .mdc-dialog .mdc-dialog__scrim {
@@ -274,7 +305,9 @@ borealis:
       .mdc-dialog .mdc-dialog__container .mdc-dialog__surface {
         border-radius: var(--md-sys-shape-corner-extra-large) !important;
         box-shadow: var(--md-sys-elevation-level3) !important;
+        background: var(--ha-dialog-surface-background) !important;
       }
+
   card-mod-row-yaml: |
     *:focus-visible { outline: var(--focus-ring-outline); outline-offset: 2px; }
     ha-textfield, ha-select {
@@ -288,11 +321,12 @@ borealis:
       border-color: var(--md-sys-color-primary) !important;
     }
     mwc-list-item:hover {
-      background: rgba(from var(--md-sys-color-on-surface) r g b / var(--state-hover-opacity));
+      background: rgb(var(--rgb-on-surface-color) / var(--state-hover-opacity));
     }
     mwc-list-item:active {
-      background: rgba(from var(--md-sys-color-on-surface) r g b / var(--state-pressed-opacity));
+      background: rgb(var(--rgb-on-surface-color) / var(--state-pressed-opacity));
     }
+
   card-mod-header-yaml: |
     mwc-button, ha-icon-button {
       border-radius: var(--md-sys-shape-corner-small) !important;
@@ -304,18 +338,19 @@ borealis:
       box-shadow: var(--md-sys-elevation-level2);
       transform: translateY(calc(-1px * (1 - var(--reduced-motion))));
     }
+
   card-mod-tab-yaml: |
     mwc-tab {
       border-radius: var(--md-sys-shape-corner-small);
       --mdc-theme-primary: var(--md-sys-color-primary);
     }
     mwc-tab[active] {
-      background: rgba(from var(--md-sys-color-primary) r g b / var(--state-selected-opacity));
+      background: rgb(var(--rgb-primary-color) / var(--state-selected-opacity));
     }
+
   card-mod-chip-yaml: |
     ha-chip, .mdc-chip {
       border-radius: 16px !important;
       background: var(--md-sys-color-secondary-container);
-      color: var(--md-sys-color-on-secondary-container);
+      color: var(--md-sys      color: var(--md-sys-color-on-secondary-container);
       box-shadow: var(--md-sys-elevation-level1);
-    }
