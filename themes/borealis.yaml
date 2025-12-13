@@ -1,6 +1,5 @@
-
 borealis:
-  font-family: '"Inter", "Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif'
+  font-family: '"Inter", "Segoe UI", "Roboto", "Helvetica Neue", sans-serif'
   primary-font-family: var(--font-family)
   ha-font-family-heading: var(--font-family)
   ha-font-family-body: var(--font-family)
@@ -296,6 +295,12 @@ borealis:
       --md-e-2: var(--md-sys-elevation-level2);
       --md-e-3: var(--md-sys-elevation-level3);
       font-variant-numeric: tabular-nums;
+
+      /* Ensure MDC/MWC typography uses your font (prevents Arial fallback) */
+      --mdc-typography-font-family: var(--font-family);
+      --mdc-typography-body1-font-family: var(--font-family);
+      --mdc-typography-button-font-family: var(--font-family);
+      --mushroom-font-family: var(--font-family);
     }
     * { scrollbar-color: var(--md-sys-color-secondary) var(--md-sys-color-surface-container); }
     *::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -304,6 +309,16 @@ borealis:
       border-radius: 9999px;
     }
     *::-webkit-scrollbar-track { background: var(--md-sys-color-surface-container); }
+
+    /* Also enforce font directly on Mushroom containers as a belt-and-braces */
+    mushroom-chips-card,
+    mushroom-chips,
+    mushroom-chip,
+    mushroom-template-chip,
+    mushroom-person-chip,
+    mushroom-entity-chip {
+      font-family: var(--font-family) !important;
+    }
 
   card-mod-card-yaml: |
     ha-card {
@@ -364,12 +379,30 @@ borealis:
     mwc-tab[active] { background: rgb(var(--rgb-primary-color) / var(--state-selected-opacity)); }
 
   card-mod-chip-yaml: |
+    /* Existing chip look */
     ha-chip, .mdc-chip {
       border-radius: 16px !important;
       background: var(--md-sys-color-secondary-container);
       color: var(--md-sys-color-on-secondary-container);
       box-shadow: var(--md-sys-elevation-level1);
     }
+
+    /* Force font-family for all Mushroom chip variants */
+    mushroom-chips-card,
+    mushroom-chips,
+    mushroom-chip,
+    mushroom-template-chip,
+    mushroom-person-chip,
+    mushroom-entity-chip {
+      font-family: var(--font-family) !important;
+    }
+
+    /* Core HA chip + MDC fallback */
+    ha-chip,
+    .mdc-chip {
+      font-family: var(--font-family) !important;
+    }
+
 
 borealis-compact:
   font-family: '"Inter", "Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif'
@@ -500,7 +533,7 @@ borealis-compact:
   card-background-color: var(--md-sys-color-surface-container)
   ha-card-background: var(--md-sys-color-surface-container)
   ha-card-border-radius: var(--ha-card-border-radius)
-  ha-config-card-border-radius: var(--ha-config-card-border-radius)
+  ha-config-card-border-radius: var(--ha-card-border-radius)
   ha-card-box-shadow: var(--md-sys-elevation-level2)
   ha-card-border: none
   ha-card-border-width: 0
@@ -523,6 +556,7 @@ borealis-compact:
   sidebar-selected-icon-color: var(--md-sys-color-secondary)
   sidebar-selected-text-color: var(--md-sys-color-on-secondary-container)
   sidebar-text-color: var(--md-sys-color-on-surface-variant)
+  paper-listbox-background-color: var(--sidebar-background-color)
 
   input-background-color: var(--md-sys-color-surface-container-highest)
   input-fill-color: var(--md-sys-color-surface-container-highest)
@@ -638,6 +672,12 @@ borealis-compact:
       --md-e-2: var(--md-sys-elevation-level2);
       --md-e-3: var(--md-sys-elevation-level3);
       font-variant-numeric: tabular-nums;
+
+      /* Ensure MDC/MWC typography uses your font (prevents Arial fallback) */
+      --mdc-typography-font-family: var(--font-family);
+      --mdc-typography-body1-font-family: var(--font-family);
+      --mdc-typography-button-font-family: var(--font-family);
+      --mushroom-font-family: var(--font-family);
     }
     * { scrollbar-color: var(--md-sys-color-secondary) var(--md-sys-color-surface-container); }
     *::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -646,6 +686,16 @@ borealis-compact:
       border-radius: 9999px;
     }
     *::-webkit-scrollbar-track { background: var(--md-sys-color-surface-container); }
+
+    /* Also enforce font directly on Mushroom containers as a belt-and-braces */
+    mushroom-chips-card,
+    mushroom-chips,
+    mushroom-chip,
+    mushroom-template-chip,
+    mushroom-person-chip,
+    mushroom-entity-chip {
+      font-family: var(--font-family) !important;
+    }
 
   card-mod-card-yaml: |
     ha-card {
@@ -699,8 +749,33 @@ borealis-compact:
     }
     mwc-button:hover, ha-icon-button:hover {
       box-shadow: var(--md-sys-elevation-level2);
-      transform:      transform: translateY(calc(-1px * (1 - var(--reduced-motion))));
+      transform: translateY(calc(-1px * (1 - var(--reduced-motion))));
     }
 
   card-mod-tab-yaml: |
     mwc-tab { border-radius: var(--md-sys-shape-corner-small); --mdc-theme-primary: var(--md-sys-color-primary); }
+    mwc-tab[active] { background: rgb(var(--rgb-primary-color) / var(--state-selected-opacity)); }
+
+  card-mod-chip-yaml: |
+    /* Existing chip look */
+    ha-chip, .mdc-chip {
+      border-radius: 16px !important;
+      background: var(--md-sys-color-secondary-container);
+      color: var(--md-sys-color-on-secondary-container);
+      box-shadow: var(--md-sys-elevation-level1);
+    }
+
+    /* Force font-family for all Mushroom chip variants */
+    mushroom-chips-card,
+    mushroom-chips,
+    mushroom-chip,
+    mushroom-template-chip,
+    mushroom-person-chip,
+    mushroom-entity-chip {
+      font-family: var(--font-family) !important;
+    }
+
+    /* Core HA chip + MDC fallback */
+       ha-chip,
+    .mdc-chip {
+      font-family: var(--font-family) !important;
