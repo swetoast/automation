@@ -1,4 +1,3 @@
-`yaml
 borealis:
   font-family: '"Inter", "Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif'
   primary-font-family: var(--font-family)
