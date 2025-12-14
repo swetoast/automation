@@ -1,11 +1,13 @@
-
 borealis:
-  font-family: '"Inter Var", "Inter", "Noto Sans", "Roboto", "Segoe UI", "Cantarell", "Ubuntu", "Helvetica Neue", Arial, "Liberation Sans", system-ui, sans-serif'
-  primary-font-family:  primary-font-family: var(--font-family)
+  font-family: >-
+    "Inter Var", "Inter", "Noto Sans", "Roboto", "Segoe UI", "Cantarell",
+    "Ubuntu", "Helvetica Neue", Arial, "Liberation Sans", system-ui, sans-serif
+  primary-font-family: var(--font-family)
   ha-font-family-heading: var(--font-family)
   ha-font-family-body: var(--font-family)
   ha-font-family-code: var(--font-family)
   ha-font-family-longform: var(--font-family)
+  ha-card-header-font-family: var(--font-family)
 
   md-sys-shape-corner-full: 9999px
   md-sys-shape-corner-extra-large: 16px
@@ -286,6 +288,15 @@ borealis:
   ha-skeleton-color: rgb(var(--rgb-on-surface-color) / 0.06)
   ha-skeleton-active-color: rgb(var(--rgb-on-surface-color) / 0.12)
 
+  borealis-extras-enabled: 1
+  --borealis-accent-stripe: 1
+  --borealis-morph-corners: 1
+  --borealis-state-layer: 1
+  --borealis-active-halo: 1
+  --borealis-rail-highlight: 1
+  --borealis-snackbar-progress: 1  # controls visibility of progress strip
+  --borealis-flow-stripes: 1
+
   card-mod-theme: borealis
   card-mod-root-yaml: |
     :host {
@@ -296,12 +307,22 @@ borealis:
       --md-e-3: var(--md-sys-elevation-level3);
       font-variant-numeric: tabular-nums;
 
-      /* Ensure MDC/MWC typography uses your font (prevents Arial fallback) */
+      /* Typography (avoid Arial fallback) */
       --mdc-typography-font-family: var(--font-family);
       --mdc-typography-body1-font-family: var(--font-family);
       --mdc-typography-button-font-family: var(--font-family);
       --mushroom-font-family: var(--font-family);
+
+      /* Contrast boost (set to 1.0 to disable) */
+      --borealis-contrast-boost: 1.12;
+
+      /* Ripple tuning */
+      --mdc-ripple-color: color-mix(in srgb, var(--md-sys-color-primary) 70%, transparent);
+      --mdc-ripple-press-opacity: 0.18;
+      --mdc-ripple-hover-opacity: 0.10;
     }
+
+    /* Scrollbars */
     * { scrollbar-color: var(--md-sys-color-secondary) var(--md-sys-color-surface-container); }
     *::-webkit-scrollbar { width: 10px; height: 10px; }
     *::-webkit-scrollbar-thumb {
@@ -310,29 +331,219 @@ borealis:
     }
     *::-webkit-scrollbar-track { background: var(--md-sys-color-surface-container); }
 
-    /* Also enforce font directly on Mushroom containers as a belt-and-braces */
+    /* Enforce Mushroom font */
     mushroom-chips-card,
     mushroom-chips,
     mushroom-chip,
     mushroom-template-chip,
     mushroom-person-chip,
-    mushroom-entity-chip {
-      font-family: var(--font-family) !important;
+    mushroom-entity-chip { font-family: var(--font-family) !important; }
+
+    /* Contrast boost targets */
+    ha-card, ha-textfield, ha-select, mwc-tab, ha-chip { filter: contrast(var(--borealis-contrast-boost)); }
+
+    /* Sidebar selected gradient highlight */
+    ha-sidebar .menu a[aria-current="page"] mwc-list-item {
+      background:
+        linear-gradient(90deg,
+          color-mix(in srgb, var(--md-sys-color-secondary-container) 85%, transparent) 0%,
+          color-mix(in srgb, var(--md-sys-color-primary) 18%, transparent) 100%);
+      border-radius: var(--md-sys-shape-corner-medium);
+      box-shadow: var(--md-sys-elevation-level1);
+      outline: 2px solid rgb(var(--rgb-primary-color) / 0.12);
+      outline-offset: -2px;
+      filter: contrast(calc(1 + (0.06 * var(--borealis-rail-highlight))));
     }
 
+    /* Skeleton shimmer (respects reduced motion) */
+    @media (prefers-reduced-motion: no-preference) {
+      .skeleton, .ha-skeleton {
+        background: linear-gradient(
+          90deg,
+          rgb(var(--rgb-on-surface-color) / 0.06) 25%,
+          rgb(var(--rgb-on-surface-color) / 0.12) 37%,
+          rgb(var(--rgb-on-surface-color) / 0.06) 63%
+        );
+        background-size: 400% 100%;
+        animation: borealis-shimmer var(--motion-duration-slow) linear infinite;
+      }
+      @keyframes borealis-shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+    }
+
+    /* Snackbar accent edge + progress */
+    .mdc-snackbar { filter: drop-shadow(0 6px 16px rgb(0 0 0 / 0.24)); }
+    .mdc-snackbar .mdc-snackbar__surface {
+      position: relative;
+      border-radius: var(--md-sys-shape-corner-large);
+      overflow: hidden;
+    }
+    .mdc-snackbar .mdc-snackbar__surface::before {
+      content: ""; position: absolute; inset: 0 auto auto 0;
+      width: 4px; height: 100%;
+      background: linear-gradient(var(--md-sys-color-primary), var(--md-sys-color-tertiary));
+      opacity: .9;
+    }
+    .mdc-snackbar .mdc-snackbar__surface::after {
+      content: ""; position: absolute; left: 4px; right: 0; bottom: 0; height: 3px;
+      background: color-mix(in srgb, var(--md-sys-color-primary) 65%, transparent);
+      transform-origin: left;
+      animation: borealis-snack var(--motion-duration-slow) ease-out forwards;
+      opacity: calc(0.85 * var(--borealis-snackbar-progress));
+    }
+    @keyframes borealis-snack { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
   card-mod-card-yaml: |
+    /* Base elevation + motion */
     ha-card {
       padding: var(--card-padding);
       border-radius: var(--md-r-2);
-      box-shadow: var(--md-sys-elevation-level2);
-      transition: box-shadow var(--motion-duration-default) var(--motion-ease-standard),
-                  transform var(--motion-duration-fast) var(--motion-ease-standard);
+      box-shadow: var(--md-e-2);
+      transition:
+        box-shadow var(--motion-duration-default) var(--motion-ease-standard),
+        transform var(--motion-duration-fast) var(--motion-ease-standard),
+        outline-color var(--motion-duration-fast) var(--motion-ease-standard);
+      position: relative;
+      overflow: clip;
     }
     ha-card:hover {
-      box-shadow: var(--md-sys-elevation-level3);
+      box-shadow: var(--md-e-3);
       transform: translateY(calc(-1px * (1 - var(--reduced-motion))));
     }
-    ha-card .card-header { letter-spacing: .2px; font-weight: 600; }
+    ha-card:active {
+      box-shadow: var(--md-e-4);
+      transform: translateY(calc(-2px * (1 - var(--reduced-motion))));
+    }
+    ha-card:focus-within {
+      outline: 3px auto var(--focus-ring-color);
+      outline-offset: 2px;
+    }
+
+    /* Condensed headers with subtitle pill */
+    ha-card .card-header {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      grid-template-rows: auto auto;
+      row-gap: 2px;
+      align-items: center;
+      letter-spacing: .2px;
+    }
+    ha-card .card-header h1 {
+      font-size: var(--ha-font-size-m);
+      font-weight: var(--ha-font-weight-semibold);
+      margin: 0;
+    }
+    ha-card .card-header .name {
+      font-size: var(--ha-font-size-s);
+      color: var(--md-sys-color-on-surface-variant);
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      background: var(--md-sys-color-surface-variant);
+    }
+
+    /* Active halo (conic gradient) */
+    @supports selector(ha-card:has(*)) {
+      ha-card:has([state-active]),
+      ha-card:has([aria-checked="true"]) {
+        outline: 2px solid transparent; outline-offset: 2px;
+        position: relative;
+      }
+      ha-card:has([state-active])::after,
+      ha-card:has([aria-checked="true"])::after {
+        content: ""; position: absolute; inset: -2px;
+        border-radius: inherit;
+        background:
+          conic-gradient(
+            from 0deg,
+            color-mix(in srgb, var(--md-sys-color-primary) 60%, transparent),
+            color-mix(in srgb, var(--md-sys-color-tertiary) 50%, transparent),
+            color-mix(in srgb, var(--md-sys-color-primary) 60%, transparent)
+          );
+        -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+        -webkit-mask-composite: xor; mask-composite: exclude;
+        padding: 2px;
+        opacity: calc(0.8 * var(--borealis-active-halo));
+        pointer-events: none;
+        animation: borealis-halo 6s linear infinite;
+      }
+      @keyframes borealis-halo { to { transform: rotate(1turn); } }
+    }
+
+    /* Accent stripe (animated) */
+    ha-card::before {
+      content: "";
+      position: absolute; inset: 0 auto auto 0;
+      height: calc(3px * var(--borealis-accent-stripe));
+      width: 28%;
+      border-top-left-radius: inherit; border-top-right-radius: 0;
+      background: linear-gradient(90deg,
+        color-mix(in srgb, var(--md-sys-color-primary) 85%, transparent) 0%,
+        color-mix(in srgb, var(--md-sys-color-tertiary) 65%, transparent) 100%);
+      transition: width var(--motion-duration-default) var(--motion-ease-standard);
+      pointer-events: none;
+    }
+    ha-card:hover::before { width: 52%; }
+    ha-card:active::before { width: 72%; }
+
+    /* State layer overlay (MD3) */
+    ha-card {
+      background-image: linear-gradient(0deg, transparent 0 100%);
+      background-blend-mode: overlay;
+      transition: background-image var(--motion-duration-fast) var(--motion-ease-standard);
+    }
+    ha-card:hover {
+      background-image: linear-gradient(0deg,
+        color-mix(in srgb, var(--md-sys-color-primary) 6%, transparent) 0 100%);
+    }
+    ha-card:active {
+      background-image: linear-gradient(0deg,
+        color-mix(in srgb, var(--md-sys-color-primary) 10%, transparent) 0 100%);
+    }
+
+    /* Morphing corners */
+    ha-card {
+      border-radius: clamp(
+        var(--md-r-2),
+        calc(var(--md-r-2) + (var(--borealis-morph-corners) * 4px)),
+        calc(var(--md-r-2) + (var(--borealis-morph-corners) * 4px))
+      );
+      transition: border-radius var(--motion-duration-default) var(--motion-ease-standard);
+    }
+    ha-card:hover {
+      border-radius: clamp(
+        var(--md-r-2),
+        calc(var(--md-r-2) + (var(--borealis-morph-corners) * 8px)),
+        calc(var(--md-r-2) + (var(--borealis-morph-corners) * 8px))
+      );
+    }
+
+    /* Flow stripes for progress components (visibility via opacity toggle) */
+    ha-card [role="progressbar"], ha-card ha-circular-progress, ha-card ha-linear-progress {
+      --progress-background: repeating-linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--md-sys-color-primary) 22%, transparent) 0 10px,
+        color-mix(in srgb, var(--md-sys-color-primary) 0%, transparent) 10px 20px
+      );
+      background-image: var(--progress-background);
+      background-size: 200% 100%;
+      animation: borealis-flow 3s linear infinite;
+      opacity: calc(0.9 * var(--borealis-flow-stripes));
+    }
+    @keyframes borealis-flow { to { background-position: -200% 0; } }
+
+    /* Optional wallpanel glass */
+    :host([panel-mode="wall"]) ha-card {
+      background: color-mix(in srgb, var(--md-sys-color-surface) 88%, transparent);
+      backdrop-filter: saturate(110%) blur(6px);
+    }
+
+    /* Charts alignment */
+    hui-history-graph-card, hui-statistics-graph-card {
+      --primary-text-color: var(--md-sys-color-on-surface);
+      --secondary-text-color: var(--md-sys-color-on-surface-variant);
+      --accent-color: var(--md-sys-color-primary);
+      --ha-card-border-color: var(--md-sys-color-outline-variant);
+    }
 
   card-mod-more-info-yaml: |
     $: |
@@ -343,15 +554,35 @@ borealis:
       }
       .mdc-dialog .mdc-dialog__container .mdc-dialog__surface {
         border-radius: var(--md-sys-shape-corner-extra-large) !important;
-        box-shadow: var(--md-sys-elevation-level3) !important;
+        box-shadow: var(--md-e-3) !important;
         background: var(--ha-dialog-surface-background) !important;
+        overflow: hidden;
+      }
+      .mdc-dialog .mdc-dialog__title {
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--md-sys-color-outline-variant);
+      }
+      .mdc-dialog .mdc-dialog__actions {
+        position: sticky; bottom: 0;
+        background: var(--ha-dialog-surface-background);
+        border-top: 1px solid var(--md-sys-color-outline-variant);
       }
 
   card-mod-row-yaml: |
+    /* Global keyboard focus */
     *:focus-visible { outline: var(--focus-ring-outline); outline-offset: 2px; }
+
+    /* Density for lists */
+    mwc-list-item { min-height: 36px; padding: 0 8px; }
+    mwc-list-item .mdc-list-item__meta { color: var(--md-sys-color-on-surface-variant); }
+    mwc-list-item:hover { background: rgb(var(--rgb-on-surface-color) / var(--state-hover-opacity)); }
+    mwc-list-item:active { background: rgb(var(--rgb-on-surface-color) / var(--state-pressed-opacity)); }
+
+    /* Inputs (MDC) hover/focus glow */
     ha-textfield, ha-select {
       --mdc-shape-medium: var(--md-sys-shape-corner-medium);
       border-radius: var(--md-sys-shape-corner-medium) !important;
+      transition: box-shadow var(--motion-duration-fast) var(--motion-ease-standard);
     }
     ha-textfield:hover .mdc-notched-outline__leading,
     ha-textfield:hover .mdc-notched-outline__trailing,
@@ -359,49 +590,83 @@ borealis:
     ha-select:hover .mdc-notched-outline__trailing {
       border-color: var(--md-sys-color-primary) !important;
     }
-    mwc-list-item:hover { background: rgb(var(--rgb-on-surface-color) / var(--state-hover-opacity)); }
-    mwc-list-item:active { background: rgb(var(--rgb-on-surface-color) / var(--state-pressed-opacity)); }
+    ha-textfield:focus-within, ha-select:focus-within { box-shadow: 0 0 0 3px rgb(var(--rgb-primary-color) / 0.18); }
+
+    /* Icons: size + active tint */
+    ha-state-icon {
+      --mdc-icon-size: 22px;
+      color: var(--state-icon-color);
+      transition: color var(--motion-duration-fast) var(--motion-ease-standard);
+    }
+    ha-state-icon[state-active], ha-state-icon[aria-checked="true"] { color: var(--state-active-color); }
+
+    /* Inline KPI/status badge */
+    hui-generic-entity-row { position: relative; }
+    hui-generic-entity-row::after {
+      content: attr(data-badge);
+      position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+      font-size: var(--ha-font-size-s);
+      color: var(--md-sys-color-on-surface-variant);
+      background: var(--md-sys-color-surface-variant);
+      padding: 2px 6px; border-radius: 9999px;
+    }
 
   card-mod-header-yaml: |
     mwc-button, ha-icon-button {
       border-radius: var(--md-sys-shape-corner-small) !important;
-      box-shadow: var(--md-sys-elevation-level1);
+      box-shadow: var(--md-e-1);
       transition: box-shadow var(--motion-duration-fast) var(--motion-ease-standard),
                   transform var(--motion-duration-fast) var(--motion-ease-standard);
     }
     mwc-button:hover, ha-icon-button:hover {
-      box-shadow: var(--md-sys-elevation-level2);
+      box-shadow: var(--md-e-2);
       transform: translateY(calc(-1px * (1 - var(--reduced-motion))));
     }
+    ha-icon-button { transition: transform var(--motion-duration-fast) var(--motion-ease-standard); }
+    ha-icon-button:hover { transform: translateY(calc(-1px * (1 - var(--reduced-motion)))); }
 
   card-mod-tab-yaml: |
-    mwc-tab { border-radius: var(--md-sys-shape-corner-small); --mdc-theme-primary: var(--md-sys-color-primary); }
+    mwc-tab {
+      border-radius: var(--md-sys-shape-corner-small);
+      --mdc-theme-primary: var(--md-sys-color-primary);
+      position: relative;
+    }
     mwc-tab[active] { background: rgb(var(--rgb-primary-color) / var(--state-selected-opacity)); }
+    mwc-tab::after {
+      content: "";
+      position: absolute; bottom: 4px; left: 12px; right: 12px;
+      height: 2px; border-radius: 2px; background: var(--md-sys-color-primary);
+      opacity: 1;
+      transition: opacity var(--motion-duration-fast) var(--motion-ease-standard);
+    }
 
   card-mod-chip-yaml: |
-    /* Existing chip look */
+    /* Base HA chip/MDC look */
     ha-chip, .mdc-chip {
       border-radius: 16px !important;
       background: var(--md-sys-color-secondary-container);
       color: var(--md-sys-color-on-secondary-container);
-      box-shadow: var(--md-sys-elevation-level1);
+      box-shadow: var(--md-e-1);
+      font-family: var(--font-family) !important;
     }
 
-    /* Force font-family for all Mushroom chip variants */
+    /* Mushroom font + spacing + ripple-like hover */
     mushroom-chips-card,
     mushroom-chips,
     mushroom-chip,
     mushroom-template-chip,
     mushroom-person-chip,
-    mushroom-entity-chip {
-      font-family: var(--font-family) !important;
-    }
+    mushroom-entity-chip { font-family: var(--font-family) !important; }
+    mushroom-chips { gap: 6px; }
+    mushroom-chip { padding: 0 10px; min-height: 28px; }
+    mushroom-chip:hover  { background: rgb(var(--rgb-primary-color) / var(--state-hover-opacity)); }
+    mushroom-chip:active { background: rgb(var(--rgb-primary-color) / var(--state-pressed-opacity)); }
 
-    /* Core HA chip + MDC fallback */
-    ha-chip,
-    .mdc-chip {
-      font-family: var(--font-family) !important;
-    }
+    /* Semantic glows */
+    mushroom-chip.success  { box-shadow: 0 0 0 3px rgb(34 197 94 / 0.18), 0 6px 16px rgb(0 0 0 / 0.18); }
+    mushroom-chip.warning  { box-shadow: 0 0 0 3px rgb(251 191 36 / 0.18), 0 6px 16px rgb(0 0 0 / 0.18); }
+    mushroom-chip.danger   { box-shadow: 0 0 0 3px rgb(239 68 68 / 0.18), 0 6px 16px rgb(0 0 0 / 0.18); }
+    mushroom-chip.info     { box-shadow: 0 0 0 3px color-mix(in srgb, var(--md-sys-color-primary) 45%, transparent), 0 6px 16px rgb(0 0 0 / 0.18); }
 
 
 borealis-compact:
@@ -574,18 +839,6 @@ borealis-compact:
   mdc-theme-on-surface: var(--md-sys-color-on-surface)
   mdc-theme-error: var(--md-sys-color-error)
 
-  mdc-text-field-fill-color: var(--input-fill-color)
-  mdc-text-field-ink-color: var(--input-ink-color)
-  mdc-text-field-label-ink-color: var(--input-label-ink-color)
-  mdc-text-field-idle-line-color: var(--input-idle-line-color)
-  mdc-text-field-hover-line-color: var(--input-hover-line-color)
-  mdc-select-fill-color: var(--input-fill-color)
-  mdc-select-ink-color: var(--input-ink-color)
-  mdc-select-label-ink-color: var(--input-label-ink-color)
-  mdc-select-idle-line-color: var(--input-idle-line-color)
-  mdc-select-hover-line-color: var(--input-hover-line-color)
-  mdc-select-dropdown-icon-color: var(--input-dropdown-icon-color)
-
   paper-slider-knob-color: var(--md-sys-color-primary)
   paper-slider-knob-start-color: var(--md-sys-color-primary)
   paper-slider-pin-color: var(--md-sys-color-surface-container-high)
@@ -632,12 +885,6 @@ borealis-compact:
   state-lock-unlocked-color: var(--state-icon-color)
   state-climate-heat-color: var(--state-orange-color)
 
-  label-badge-background-color: var(--md-sys-color-surface-container-low)
-  label-badge-red: '#27324a'
-  label-badge-blue: '#163a4a'
-  label-badge-green: '#133a2b'
-  label-badge-yellow: '#3d3521'
-
   lumo-primary-color: var(--md-sys-color-primary)
   lumo-body-text-color: var(--md-sys-color-on-surface)
   lumo-base-color: var(--md-sys-color-surface)
@@ -663,6 +910,15 @@ borealis-compact:
   focus-ring-color: rgb(var(--rgb-primary-color) / 0.45)
   focus-ring-outline: 3px auto var(--focus-ring-color)
 
+  borealis-extras-enabled: 1
+  --borealis-accent-stripe: 1
+  --borealis-morph-corners: 1
+  --borealis-state-layer: 1
+  --borealis-active-halo: 1
+  --borealis-rail-highlight: 1
+  --borealis-snackbar-progress: 1
+  --borealis-flow-stripes: 1
+
   card-mod-theme: borealis-compact
   card-mod-root-yaml: |
     :host {
@@ -673,12 +929,22 @@ borealis-compact:
       --md-e-3: var(--md-sys-elevation-level3);
       font-variant-numeric: tabular-nums;
 
-      /* Ensure MDC/MWC typography uses your font (prevents Arial fallback) */
+      /* Typography */
       --mdc-typography-font-family: var(--font-family);
       --mdc-typography-body1-font-family: var(--font-family);
       --mdc-typography-button-font-family: var(--font-family);
       --mushroom-font-family: var(--font-family);
+
+      /* Contrast boost */
+      --borealis-contrast-boost: 1.12;
+
+      /* Ripple tuning */
+      --mdc-ripple-color: color-mix(in srgb, var(--md-sys-color-primary) 70%, transparent);
+      --mdc-ripple-press-opacity: 0.18;
+      --mdc-ripple-hover-opacity: 0.10;
     }
+
+    /* Compact scrollbars */
     * { scrollbar-color: var(--md-sys-color-secondary) var(--md-sys-color-surface-container); }
     *::-webkit-scrollbar { width: 8px; height: 8px; }
     *::-webkit-scrollbar-thumb {
@@ -687,45 +953,210 @@ borealis-compact:
     }
     *::-webkit-scrollbar-track { background: var(--md-sys-color-surface-container); }
 
-    /* Also enforce font directly on Mushroom containers as a belt-and-braces */
+    /* Enforce Mushroom font */
     mushroom-chips-card,
     mushroom-chips,
     mushroom-chip,
     mushroom-template-chip,
     mushroom-person-chip,
-    mushroom-entity-chip {
-      font-family: var(--font-family) !important;
+    mushroom-entity-chip { font-family: var(--font-family) !important; }
+
+    /* Contrast boost */
+    ha-card, ha-textfield, ha-select, mwc-tab, ha-chip { filter: contrast(var(--borealis-contrast-boost)); }
+
+    /* Sidebar gradient highlight */
+    ha-sidebar .menu a[aria-current="page"] mwc-list-item {
+      background:
+        linear-gradient(90deg,
+          color-mix(in srgb, var(--md-sys-color-secondary-container) 85%, transparent) 0%,
+          color-mix(in srgb, var(--md-sys-color-primary) 18%, transparent) 100%);
+      border-radius: var(--md-sys-shape-corner-medium);
+      box-shadow: var(--md-sys-elevation-level1);
+      outline: 2px solid rgb(var(--rgb-primary-color) / 0.12);
+      outline-offset: -2px;
+      filter: contrast(calc(1 + (0.06 * var(--borealis-rail-highlight))));
     }
+
+    /* Skeleton shimmer */
+    @media (prefers-reduced-motion: no-preference) {
+      .skeleton, .ha-skeleton {
+        background: linear-gradient(
+          90deg,
+          rgb(var(--rgb-on-surface-color) / 0.06) 25%,
+          rgb(var(--rgb-on-surface-color) / 0.12) 37%,
+          rgb(var(--rgb-on-surface-color) / 0.06) 63%
+        );
+        background-size: 400% 100%;
+        animation: borealis-shimmer var(--motion-duration-slow) linear infinite;
+      }
+      @keyframes borealis-shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+    }
+
+    /* Snackbar accent edge + progress */
+    .mdc-snackbar { filter: drop-shadow(0 6px 16px rgb(0 0 0 / 0.24)); }
+    .mdc-snackbar .mdc-snackbar__surface {
+      position: relative;
+      border-radius: var(--md-sys-shape-corner-large);
+      overflow: hidden;
+    }
+    .mdc-snackbar .mdc-snackbar__surface::before {
+      content: ""; position: absolute; inset: 0 auto auto 0;
+      width: 4px; height: 100%;
+      background: linear-gradient(var(--md-sys-color-primary), var(--md-sys-color-tertiary));
+      opacity: .9;
+    }
+    .mdc-snackbar .mdc-snackbar__surface::after {
+      content: ""; position: absolute; left: 4px; right: 0; bottom: 0; height: 3px;
+      background: color-mix(in srgb, var(--md-sys-color-primary) 65%, transparent);
+      transform-origin: left;
+      animation: borealis-snack var(--motion-duration-slow) ease-out forwards;
+      opacity: calc(0.85 * var(--borealis-snackbar-progress));
+    }
+    @keyframes borealis-snack { from { transform: scaleX(1); } to { transform: scaleX(0); } }
 
   card-mod-card-yaml: |
     ha-card {
       padding: var(--card-padding);
       border-radius: var(--ha-card-border-radius);
-      box-shadow: var(--md-sys-elevation-level2);
-      transition: box-shadow var(--motion-duration-default) var(--motion-ease-standard),
-                  transform var(--motion-duration-fast) var(--motion-ease-standard);
+      box-shadow: var(--md-e-2);
+      transition:
+        box-shadow var(--motion-duration-default) var(--motion-ease-standard),
+        transform var(--motion-duration-fast) var(--motion-ease-standard),
+        outline-color var(--motion-duration-fast) var(--motion-ease-standard);
+      position: relative;
+      overflow: clip;
     }
     ha-card:hover {
-      box-shadow: var(--md-sys-elevation-level3);
+      box-shadow: var(--md-e-3);
       transform: translateY(calc(-1px * (1 - var(--reduced-motion))));
     }
-    ha-card .card-header { letter-spacing: .2px; font-weight: 600; }
+    ha-card:active {
+      box-shadow: var(--md-e-4);
+      transform: translateY(calc(-2px * (1 - var(--reduced-motion))));
+    }
+    ha-card:focus-within {
+      outline: 3px auto var(--focus-ring-color);
+      outline-offset: 2px;
+    }
 
-  card-mod-row-yaml: |
-    *:focus-visible { outline: var(--focus-ring-outline); outline-offset: 2px; }
-    mwc-list-item { min-height: 36px; }
-    ha-textfield, ha-select {
-      --mdc-shape-medium: var(--md-sys-shape-corner-medium);
-      border-radius: var(--md-sys-shape-corner-medium) !important;
+    /* Compact header layout */
+    ha-card .card-header {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      grid-template-rows: auto auto;
+      row-gap: 2px;
+      align-items: center;
+      letter-spacing: .2px;
     }
-    ha-textfield:hover .mdc-notched-outline__leading,
-    ha-textfield:hover .mdc-notched-outline__trailing,
-    ha-select:hover .mdc-notched-outline__leading,
-    ha-select:hover .mdc-notched-outline__trailing {
-      border-color: var(--md-sys-color-primary) !important;
+    ha-card .card-header h1 {
+      font-size: var(--ha-font-size-l);
+      font-weight: var(--ha-font-weight-semibold);
+      margin: 0;
     }
-    mwc-list-item:hover { background: rgb(var(--rgb-on-surface-color) / var(--state-hover-opacity)); }
-    mwc-list-item:active { background: rgb(var(--rgb-on-surface-color) / var(--state-pressed-opacity)); }
+    ha-card .card-header .name {
+      font-size: var(--ha-font-size-m);
+      color: var(--md-sys-color-on-surface-variant);
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      background: var(--md-sys-color-surface-variant);
+    }
+
+    /* Active halo */
+    @supports selector(ha-card:has(*)) {
+      ha-card:has([state-active]),
+      ha-card:has([aria-checked="true"]) {
+        outline: 2px solid transparent; outline-offset: 2px; position: relative;
+      }
+      ha-card:has([state-active])::after,
+      ha-card:has([aria-checked="true"])::after {
+        content: ""; position: absolute; inset: -2px; border-radius: inherit;
+        background:
+          conic-gradient(
+            from 0deg,
+            color-mix(in srgb, var(--md-sys-color-primary) 60%, transparent),
+            color-mix(in srgb, var(--md-sys-color-tertiary) 50%, transparent),
+            color-mix(in srgb, var(--md-sys-color-primary) 60%, transparent)
+          );
+        -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+        -webkit-mask-composite: xor; mask-composite: exclude;
+        padding: 2px;
+        opacity: calc(0.8 * var(--borealis-active-halo));
+        pointer-events: none;
+        animation: borealis-halo 6s linear infinite;
+      }
+      @keyframes borealis-halo { to { transform: rotate(1turn); } }
+    }
+
+    /* Accent stripe */
+    ha-card::before {
+      content: "";
+      position: absolute; inset: 0 auto auto 0;
+      height: calc(3px * var(--borealis-accent-stripe));
+      width: 28%;
+      border-top-left-radius: inherit; border-top-right-radius: 0;
+      background: linear-gradient(90deg,
+        color-mix(in srgb, var(--md-sys-color-primary) 85%, transparent) 0%,
+        color-mix(in srgb, var(--md-sys-color-tertiary) 65%, transparent) 100%);
+      transition: width var(--motion-duration-default) var(--motion-ease-standard);
+      pointer-events: none;
+    }
+    ha-card:hover::before { width: 52%; }
+    ha-card:active::before { width: 72%; }
+
+    /* State layer overlay */
+    ha-card {
+      background-image: linear-gradient(0deg, transparent 0 100%);
+      background-blend-mode: overlay;
+      transition: background-image var(--motion-duration-fast) var(--motion-ease-standard);
+    }
+    ha-card:hover {
+      background-image: linear-gradient(0deg,
+        color-mix(in srgb, var(--md-sys-color-primary) 6%, transparent) 0 100%);
+    }
+    ha-card:active {
+      background-image: linear-gradient(0deg,
+        color-mix(in srgb, var(--md-sys-color-primary) 10%, transparent) 0 100%);
+    }
+
+    /* Morphing corners */
+    ha-card {
+      border-radius: clamp(
+        var(--ha-card-border-radius),
+        calc(var(--ha-card-border-radius) + (var(--borealis-morph-corners) * 4px)),
+        calc(var(--ha-card-border-radius) + (var(--borealis-morph-corners) * 4px))
+      );
+      transition: border-radius var(--motion-duration-default) var(--motion-ease-standard);
+    }
+    ha-card:hover {
+      border-radius: clamp(
+        var(--ha-card-border-radius),
+        calc(var(--ha-card-border-radius) + (var(--borealis-morph-corners) * 8px)),
+        calc(var(--ha-card-border-radius) + (var(--borealis-morph-corners) * 8px))
+      );
+    }
+
+    /* Flow stripes for progress components */
+    ha-card [role="progressbar"], ha-card ha-circular-progress, ha-card ha-linear-progress {
+      --progress-background: repeating-linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--md-sys-color-primary) 22%, transparent) 0 10px,
+        color-mix(in srgb, var(--md-sys-color-primary) 0%, transparent) 10px 20px
+      );
+      background-image: var(--progress-background);
+      background-size: 200% 100%;
+      animation: borealis-flow 3s linear infinite;
+      opacity: calc(0.9 * var(--borealis-flow-stripes));
+    }
+    @keyframes borealis-flow { to { background-position: -200% 0; } }
+
+    /* Charts alignment */
+    hui-history-graph-card, hui-statistics-graph-card {
+      --primary-text-color: var(--md-sys-color-on-surface);
+      --secondary-text-color: var(--md-sys-color-on-surface-variant);
+      --accent-color: var(--md-sys-color-primary);
+      --ha-card-border-color: var(--md-sys-color-outline-variant);
+    }
 
   card-mod-more-info-yaml: |
     $: |
@@ -736,46 +1167,106 @@ borealis-compact:
       }
       .mdc-dialog .mdc-dialog__container .mdc-dialog__surface {
         border-radius: var(--md-sys-shape-corner-extra-large) !important;
-        box-shadow: var(--md-sys-elevation-level3) !important;
+        box-shadow: var(--md-e-3) !important;
         background: var(--ha-dialog-surface-background) !important;
+        overflow: hidden;
       }
+      .mdc-dialog .mdc-dialog__title {
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--md-sys-color-outline-variant);
+      }
+      .mdc-dialog .mdc-dialog__actions {
+        position: sticky; bottom: 0;
+        background: var(--ha-dialog-surface-background);
+        border-top: 1px solid var(--md-sys-color-outline-variant);
+      }
+
+  card-mod-row-yaml: |
+    *:focus-visible { outline: var(--focus-ring-outline); outline-offset: 2px; }
+
+    mwc-list-item { min-height: 36px; padding: 0 8px; }
+    mwc-list-item .mdc-list-item__meta { color: var(--md-sys-color-on-surface-variant); }
+    mwc-list-item:hover { background: rgb(var(--rgb-on-surface-color) / var(--state-hover-opacity)); }
+    mwc-list-item:active { background: rgb(var(--rgb-on-surface-color) / var(--state-pressed-opacity)); }
+
+    ha-textfield, ha-select {
+      --mdc-shape-medium: var(--md-sys-shape-corner-medium);
+      border-radius: var(--md-sys-shape-corner-medium) !important;
+      transition: box-shadow var(--motion-duration-fast) var(--motion-ease-standard);
+    }
+    ha-textfield:hover .mdc-notched-outline__leading,
+    ha-textfield:hover .mdc-notched-outline__trailing,
+    ha-select:hover .mdc-notched-outline__leading,
+    ha-select:hover .mdc-notched-outline__trailing { border-color: var(--md-sys-color-primary) !important; }
+    ha-textfield:focus-within, ha-select:focus-within { box-shadow: 0 0 0 3px rgb(var(--rgb-primary-color) / 0.18); }
+
+    ha-state-icon {
+      --mdc-icon-size: 22px;
+      color: var(--state-icon-color);
+      transition: color var(--motion-duration-fast) var(--motion-ease-standard);
+    }
+    ha-state-icon[state-active], ha-state-icon[aria-checked="true"] { color: var(--state-active-color); }
+
+    hui-generic-entity-row { position: relative; }
+    hui-generic-entity-row::after {
+      content: attr(data-badge);
+      position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+      font-size: var(--ha-font-size-s);
+      color: var(--md-sys-color-on-surface-variant);
+      background: var(--md-sys-color-surface-variant);
+      padding: 2px 6px; border-radius: 9999px;
+    }
 
   card-mod-header-yaml: |
     mwc-button, ha-icon-button {
       border-radius: var(--md-sys-shape-corner-small) !important;
-      box-shadow: var(--md-sys-elevation-level1);
+      box-shadow: var(--md-e-1);
       transition: box-shadow var(--motion-duration-fast) var(--motion-ease-standard),
                   transform var(--motion-duration-fast) var(--motion-ease-standard);
     }
     mwc-button:hover, ha-icon-button:hover {
-      box-shadow: var(--md-sys-elevation-level2);
+      box-shadow: var(--md-e-2);
       transform: translateY(calc(-1px * (1 - var(--reduced-motion))));
     }
+    ha-icon-button { transition: transform var(--motion-duration-fast) var(--motion-ease-standard); }
+    ha-icon-button:hover { transform: translateY(calc(-1px * (1 - var(--reduced-motion)))); }
 
   card-mod-tab-yaml: |
-    mwc-tab { border-radius: var(--md-sys-shape-corner-small); --mdc-theme-primary: var(--md-sys-color-primary); }
+    mwc-tab {
+      border-radius: var(--md-sys-shape-corner-small);
+      --mdc-theme-primary: var(--md-sys-color-primary);
+      position: relative;
+    }
     mwc-tab[active] { background: rgb(var(--rgb-primary-color) / var(--state-selected-opacity)); }
+    mwc-tab::after {
+      content: "";
+      position: absolute; bottom: 4px; left: 12px; right: 12px;
+      height: 2px; border-radius: 2px; background: var(--md-sys-color-primary);
+      opacity: 1;
+      transition: opacity var(--motion-duration-fast) var(--motion-ease-standard);
+    }
 
   card-mod-chip-yaml: |
-    /* Existing chip look */
     ha-chip, .mdc-chip {
       border-radius: 16px !important;
       background: var(--md-sys-color-secondary-container);
       color: var(--md-sys-color-on-secondary-container);
-      box-shadow: var(--md-sys-elevation-level1);
+      box-shadow: var(--md-e-1);
+      font-family: var(--font-family) !important;
     }
 
-    /* Force font-family for all Mushroom chip variants */
     mushroom-chips-card,
     mushroom-chips,
     mushroom-chip,
     mushroom-template-chip,
     mushroom-person-chip,
-    mushroom-entity-chip {
-      font-family: var(--font-family) !important;
-    }
+    mushroom-entity-chip { font-family: var(--font-family) !important; }
+    mushroom-chips { gap: 6px; }
+    mushroom-chip { padding: 0 10px; min-height: 28px; }
+    mushroom-chip:hover  { background: rgb(var(--rgb-primary-color) / var(--state-hover-opacity)); }
+    mushroom-chip:active { background: rgb(var(--rgb-primary-color) / var(--state-pressed-opacity)); }
 
-    /* Core HA chip + MDC fallback */
-       ha-chip,
-    .mdc-chip {
-      font-family: var(--font-family) !important;
+    mushroom-chip.success  { box-shadow: 0 0 0 3px rgb(34 197 94 / 0.18), 0 6px 16px rgb(0 0 0 / 0.18); }
+    mushroom-chip.warning  { box-shadow: 0 0 0 3px rgb(251 191 36 / 0.18), 0 6px 16px rgb(0 0 0 / 0.18); }
+    mushroom-chip.danger   { box-shadow: 0 0 0 3px rgb(239 68 68 / 0.18), 0 6px 16px rgb(0 0 0 / 0.18); }
+    mushroom-chip.info     { box-shadow: 0 0 0 3px color-mix(in srgb, var(--md-sys-color-primary) 45%, transparent),
