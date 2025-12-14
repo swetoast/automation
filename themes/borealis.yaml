@@ -1,11 +1,11 @@
+
 borealis:
-  font-family: '"Inter Var", "Inter", "Noto Sans", "Roboto", "Segoe UI", "Cantarell", "Ubuntu", "Helvetica Neue", Arial, "Liberation Sans", system-ui,
-  primary-font-family: var(--font-family)
+  font-family: '"Inter Var", "Inter", "Noto Sans", "Roboto", "Segoe UI", "Cantarell", "Ubuntu", "Helvetica Neue", Arial, "Liberation Sans", system-ui, sans-serif'
+  primary-font-family:  primary-font-family: var(--font-family)
   ha-font-family-heading: var(--font-family)
   ha-font-family-body: var(--font-family)
   ha-font-family-code: var(--font-family)
   ha-font-family-longform: var(--font-family)
-  ha-card-header-font-family: var(--font-family)
 
   md-sys-shape-corner-full: 9999px
   md-sys-shape-corner-extra-large: 16px
