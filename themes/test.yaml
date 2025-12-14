@@ -1,5 +1,7 @@
 borealis:
-  font-family: '"Inter", "Segoe UI", "Roboto", "Helvetica Neue", sans-serif'
+  font-family: >-
+    "Inter Var", "Inter", "Noto Sans", "Roboto", "Segoe UI", "Cantarell",
+    "Ubuntu", "Helvetica Neue", Arial, "Liberation Sans", system-ui, sans-serif
   primary-font-family: var(--font-family)
   ha-font-family-heading: var(--font-family)
   ha-font-family-body: var(--font-family)
