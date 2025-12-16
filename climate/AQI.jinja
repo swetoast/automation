@@ -1,0 +1,60 @@
+
+{# --- Sensor Inputs --- #}
+{% set pm25 = states('sensor.kitchen_pm2_5') | float(0) %}
+{% set voc1 = states('sensor.wave_mini_vocs') | float(0) %}
+{% set voc2 = states('sensor.bedroom_volatile_organic_compounds_parts') | float(0) %}
+{% set co2 = states('sensor.bedroom_carbon_dioxide') | float(0) %}
+{% set temp = states('sensor.average_indoor_temperature') | float(0) %}
+{% set rh = states('sensor.average_indoor_humidity') | float(0) %}
+
+{# --- Constants --- #}
+{% set PM25_LIMIT = 15.0 %}
+{% set CO2_BASE = 400 %}
+{% set CO2_LIMIT = 1000.0 %}
+{% set TVOC_LIMIT = 500.0 %}
+{% set t_opt_low, t_opt_high = 21, 23 %}
+{% set t_min, t_max = 18, 26 %}
+{% set rh_opt_low, rh_opt_high = 40, 60 %}
+{% set rh_min, rh_max = 30, 70 %}
+
+{# --- Pollutant Normalization --- #}
+{% set tvoc = (voc1 + voc2) / 2 %}
+{% set pm_index = [pm25 / PM25_LIMIT, 1] | min %}
+{% set co2_index = [(co2 - CO2_BASE) / (CO2_LIMIT - CO2_BASE), 1] | min %}
+{% set voc_index = [tvoc / TVOC_LIMIT, 1] | min %}
+{% set pollution_index = [pm_index, co2_index, voc_index] | max %}
+
+{# --- Optional Penalty for Multiple High Pollutants --- #}
+{% set bad_count = (1 if pm_index > 0.8 else 0) + (1 if co2_index > 0.8 else 0) + (1 if voc_index > 0.8 else 0) %}
+{% if bad_count > 1 %}
+  {% set pollution_index = [pollution_index + 0.1 * (bad_count - 1) / 2, 1] | min %}
+{% endif %}
+
+{# --- Comfort Factor --- #}
+{% if temp >= t_opt_low and temp <= t_opt_high %}
+  {% set temp_score = 1 %}
+{% elif temp < t_opt_low %}
+  {% set temp_score = (temp - t_min) / (t_opt_low - t_min) %}
+{% else %}
+  {% set temp_score = (t_max - temp) / (t_max - t_opt_high) %}
+{% endif %}
+{% set temp_score = [temp_score, 0] | max %}
+{% set temp_score = [temp_score, 1] | min %}
+
+{% if rh >= rh_opt_low and rh <= rh_opt_high %}
+  {% set rh_score = 1 %}
+{% elif rh < rh_opt_low %}
+  {% set rh_score = (rh - rh_min) / (rh_opt_low - rh_min) %}
+{% else %}
+  {% set rh_score = (rh_max - rh) / (rh_max - rh_opt_high) %}
+{% endif %}
+{% set rh_score = [rh_score, 0] | max %}
+{% set rh_score = [rh_score, 1] | min %}
+
+{% set comfort_factor = 0.85 + 0.15 * ((temp_score + rh_score) / 2) %}
+{% set comfort_factor = [comfort_factor, 0] | max %}
+{% set comfort_factor = [comfort_factor, 1] | min %}
+
+{# --- Final Inverted AQI Score --- #}
+{% set aqi_score = (1 - pollution_index * comfort_factor) * 100 %}
+{{ aqi_score | round(1) }}
