@@ -12,7 +12,8 @@
   {'key': 'outlet_overloaded', 'entity': 'binary_sensor.ac_outlet_overloaded'},
   {'key': 'price_guard',       'entity': 'binary_sensor.price_guard'},
   {'key': 'motion_living',     'entity': 'binary_sensor.motion_living_room'},
-  {'key': 'smoke', 'entity': 'binary_sensor.smoke_alarm_smoke'}
+  {'key': 'smoke', 'entity': 'binary_sensor.smoke_alarm_smoke'},
+  {'key': 'shower',            'entity': 'binary_sensor.shower'}
 ] %}
 
 {% set override_list = [
@@ -113,6 +114,11 @@
   { 'name': 'Outlet overloaded → off',
     'passed': (ns.values.outlet_overloaded and not ns.values.ov_comf),
     'mode': 'off' },
+    
+  { 'name': 'Shower running → dry',
+    'passed': ns.values.shower,
+    'mode': 'dry' },
+  
   {
     'name': 'Bedroom window open → fan_only',
     'passed': ns.values.window_bed_door,
