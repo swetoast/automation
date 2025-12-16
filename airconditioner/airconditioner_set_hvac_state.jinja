@@ -88,6 +88,11 @@
 {% set ac_modes = ['off','dry','cool','fan_only'] %}
 
 {% set rules = [
+  { 'name': 'Window closed & hot & AC cooling → fan_only',
+    'passed': (not ns.values.window_open
+               and ns.values.thoms_state != 'no_discomfort'
+               and ns.values.prev_mode == 'cool'),
+    'mode': 'fan_only' },
   {
     'name':  'Smoke detected → off',
     'passed': is_state('binary_sensor.smoke_alarm_smoke','on'),
@@ -108,12 +113,6 @@
   { 'name': 'Outlet overloaded → off',
     'passed': (ns.values.outlet_overloaded and not ns.values.ov_comf),
     'mode': 'off' },
-
-  {
-    'name': 'Living-room window closed → fan_only',
-    'passed': not ns.values.window_open,
-    'mode': 'fan_only'
-  },
   {
     'name': 'Bedroom window open → fan_only',
     'passed': ns.values.window_bed_door,
