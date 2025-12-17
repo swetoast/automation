@@ -2,7 +2,7 @@ borealis:
 # Version 1
 # Used for desktops
   font-family: >-
-    "Inter", "Roboto Flex", "Noto Sans", "Barlow", "Quicksand", "Raleway"
+    "Inter", "Roboto Flex", "Noto Sans", "Barlow", "Quicksand", "Raleway", "Segoe UI"
   primary-font-family: var(--font-family)
   ha-font-family-heading: var(--font-family)
   ha-font-family-body: var(--font-family)
