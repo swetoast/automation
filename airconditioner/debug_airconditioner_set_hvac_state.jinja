@@ -2,7 +2,9 @@
   {'key': 'hum',          'entity': 'sensor.average_humidity_tracker'},
   {'key': 'comfort_temp', 'entity': 'sensor.comfort_zone_temperature'},
   {'key': 'price_thr',    'entity': 'input_number.price_guard_threshold'},
-  {'key': 'mold_risk',    'entity': 'sensor.wave_mini_mold'}
+  {'key': 'mold_risk',    'entity': 'sensor.wave_mini_mold'},
+  {'key': 'voc',          'entity': 'sensor.bedroom_volatile_organic_compounds_parts'},
+  {'key': 'co2',          'entity': 'sensor.bedroom_carbon_dioxide'}
 ] %}
 
 {% set flag_list = [
@@ -144,6 +146,15 @@
                and ns.values.thoms_state != 'no_discomfort'
                and ns.values.window_open
                and ns.values.prev_mode != 'fan_only'),
+    'mode': 'fan_only' },
+
+  { 'name': 'Poor air quality & windows open → fan_only',
+    'passed': (
+      ns.values.window_open
+      and ns.values.window_bed_door
+      and (ns.values.voc > 1000 or ns.values.co2 > 2000)
+      and ns.values.prev_mode != 'fan_only'
+    ),
     'mode': 'fan_only' }
 ] %}
 
