@@ -11,11 +11,16 @@ check_timeout: 3000
 ```
 Pollen Card
 ```yaml
-type: custom:pollen-se-card
-entity: sensor.pollen_data
-season_entity: sensor.season
-accuweather_entity: sensor.pollens_accuweather
-no_pollens_label: No significant pollen levels
+type: custom:pollen-card
+title: Accuweather Seasonal Pollens
+title_logo: >-
+  https://cdn.brandfetch.io/idz9AroCHx/w/400/h/400/theme/dark/icon.jpeg?c=1dxbfHSJFAPEGdCLU4o5B
+entities:
+  - sensor.pollens_accuweather
+  - sensor.pollen_data
+icon: mdi:flower-pollen
+seasonal: true
+auto_hide: true
 ```
 Västtrafik Card
 ```yaml
