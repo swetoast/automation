@@ -52,9 +52,6 @@ replace_button: button.entryway_climate_sensor_battery_replaced
 *   **`replace_button`** *(string, optional)*  
     A `button.*` entity the card will press when “Mark replaced” is triggered. If omitted, the card derives one from the sensor ID by replacing the `sensor.` prefix with `button.` and converting the trailing battery token to `_battery_replaced`. If the derived entity does not exist, the action is disabled. 
 
-*   **`compact`** *(boolean, optional; default `true`)*  
-    Controls layout density: compact (`true`) or full (`false`). Also affects `getCardSize()` for masonry sizing (2 vs 3). 
-
 ## Entity Attributes Used
 
 If present, these attributes enrich the UI; if absent, a placeholder is shown:
